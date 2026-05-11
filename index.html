@@ -22,7 +22,8 @@
             color: var(--text-color);
             margin: 0;
             padding: 0;
-            padding-top: env(safe-area-inset-top);
+            /* 配合 fixed header 增加頂部 padding */
+            padding-top: calc(env(safe-area-inset-top) + 60px);
             padding-bottom: env(safe-area-inset-bottom);
             padding-left: env(safe-area-inset-left);
             padding-right: env(safe-area-inset-right);
@@ -33,33 +34,24 @@
         }
 
         header {
-            position: sticky;
-            top: env(safe-area-inset-top);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
             background-color: rgba(10, 10, 10, 0.95);
-            padding: 10px 15px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            padding-top: calc(env(safe-area-inset-top) + 10px);
+            padding-bottom: 10px;
+            text-align: center;
             border-bottom: 1px solid var(--border-color);
-            z-index: 100;
+            z-index: 1000;
+            min-height: calc(env(safe-area-inset-top) + 40px);
         }
 
-        h1 { margin: 0; font-size: 1.2rem; text-align: center; }
+        h1 { margin: 0; font-size: 1.2rem; display: inline-block; line-height: 30px;}
 
-        .header-btn-right {
+        .header-btn-right, .header-btn-left {
             position: absolute;
-            right: 15px;
-            background: var(--btn-bg);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
-
-        .header-btn-left {
-            position: absolute;
-            left: 15px;
+            bottom: 10px;
             background: var(--btn-bg);
             color: var(--text-color);
             border: 1px solid var(--border-color);
@@ -68,6 +60,8 @@
             font-size: 0.8rem;
             z-index: 10;
         }
+        .header-btn-left { left: max(15px, env(safe-area-inset-left)); }
+        .header-btn-right { right: max(15px, env(safe-area-inset-right)); }
 
         main { flex: 1; padding: 15px; max-width: 600px; margin: 0 auto; width: 100%; }
 
@@ -92,7 +86,8 @@
             display: block; width: 100%; padding: 12px; background: var(--btn-bg); color: var(--text-color);
             border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; margin-bottom: 10px; cursor: pointer; text-align: center;
         }
-        .btn:active { background: var(--btn-hover); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:active:not(:disabled) { background: var(--btn-hover); }
         .btn-half { display: inline-block; width: 48%; }
 
         /* Practice Area */
@@ -138,8 +133,9 @@
 <body>
 
     <header>
+        <button id="btn-unfamiliar" class="header-btn-left hidden" onclick="markUnfamiliar()">我不熟</button>
         <h1>日檢自修室(單字卡)</h1>
-        <button class="header-btn-right" onclick="openFavorites()">收藏清單</button>
+        <button id="btn-open-fav" class="header-btn-right" onclick="openFavorites()">收藏清單</button>
     </header>
 
     <!-- Main Menu -->
@@ -190,7 +186,6 @@
 
     <!-- Practice Area -->
     <main id="practice-area" class="hidden">
-        <button id="btn-unfamiliar" class="header-btn-left" style="top: 10px;" onclick="markUnfamiliar()">我不熟</button>
         <div class="progress-bar" id="progress-bar">剩餘 0 題</div>
         <div class="timer" id="timer-display">30</div>
         
@@ -227,10 +222,26 @@
                 <button onclick="toggleAllFavs(false)" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">取消</button>
             </div>
         </div>
-        <div id="fav-list" style="margin-bottom: 15px; max-height: 50vh; overflow-y: auto;"></div>
+        <div id="fav-list" style="margin-bottom: 15px; max-height: 40vh; overflow-y: auto;"></div>
+        <button class="btn" style="background-color: #2e8b57; margin-bottom: 15px;" onclick="startFavBrowse()">瀏覽單字卡</button>
         <div style="display: flex; justify-content: space-between;">
             <button class="btn btn-half" onclick="document.getElementById('favorites-modal').close()">取消</button>
             <button class="btn btn-half" onclick="applyFavoritesChanges()">確定變更</button>
+        </div>
+    </dialog>
+
+    <!-- Browse Favorites Modal -->
+    <dialog id="browse-modal">
+        <div class="dialog-header">
+            <strong>收藏瀏覽 (<span id="browse-progress"></span>)</strong>
+            <button onclick="document.getElementById('browse-modal').close()" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">關閉</button>
+        </div>
+        <div id="browse-content" style="text-align: center; padding: 20px 0; min-height: 200px;">
+            <!-- Content will be injected here -->
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+            <button class="btn btn-half" id="btn-browse-prev" onclick="browsePrev()">上一張</button>
+            <button class="btn btn-half" id="btn-browse-next" onclick="browseNext()">下一張</button>
         </div>
     </dialog>
 
@@ -504,6 +515,9 @@ let timeLeft = 30;
 let mistakes = new Set();
 let currentQuestionData = null;
 
+let browseList = [];
+let browseIndex = 0;
+
 // --- Initialization ---
 function init() {
     let customData = localStorage.getItem('jp_custom_db');
@@ -632,7 +646,7 @@ function saveCard() {
     openCardManager();
 }
 
-// --- Favorites Modal ---
+// --- Favorites List & Browse ---
 function openFavorites() {
     const list = document.getElementById('fav-list');
     list.innerHTML = '';
@@ -667,6 +681,48 @@ function applyFavoritesChanges() {
     });
     saveFavs();
     document.getElementById('favorites-modal').close();
+}
+
+function startFavBrowse() {
+    browseList = db.filter(c => favIds.has(c.id));
+    if (browseList.length === 0) {
+        alert("目前沒有已收藏的字卡可供瀏覽。");
+        return;
+    }
+    document.getElementById('favorites-modal').close();
+    browseIndex = 0;
+    renderBrowseCard();
+    document.getElementById('browse-modal').showModal();
+}
+
+function renderBrowseCard() {
+    const card = browseList[browseIndex];
+    document.getElementById('browse-progress').innerText = `${browseIndex + 1} / ${browseList.length}`;
+    
+    let html = `
+        <div style="font-size: 0.9rem; color: #aaa; margin-bottom: 10px;">[${card.level}] - ${card.category}</div>
+        <div style="font-size: 2.5rem; color: #fff; margin-bottom: 10px;">${card.kanji || card.kana}</div>
+        ${card.kanji ? `<div style="font-size: 1.2rem; color: #aaa; margin-bottom: 10px;">${card.kana}</div>` : ''}
+        <div style="font-size: 1.2rem; color: #87ceeb;">${card.zh}</div>
+    `;
+    document.getElementById('browse-content').innerHTML = html;
+    
+    document.getElementById('btn-browse-prev').disabled = (browseIndex === 0);
+    document.getElementById('btn-browse-next').disabled = (browseIndex === browseList.length - 1);
+}
+
+function browsePrev() {
+    if (browseIndex > 0) {
+        browseIndex--;
+        renderBrowseCard();
+    }
+}
+
+function browseNext() {
+    if (browseIndex < browseList.length - 1) {
+        browseIndex++;
+        renderBrowseCard();
+    }
 }
 
 // --- Practice Engine ---
@@ -732,6 +788,10 @@ function startPractice() {
         let type = cardValidTypes[Math.floor(Math.random() * cardValidTypes.length)];
         practiceQueue.push({ card, type, pool });
     }
+
+    // Toggle Header Buttons
+    document.getElementById('btn-open-fav').classList.add('hidden');
+    document.getElementById('btn-unfamiliar').classList.remove('hidden');
 
     document.getElementById('main-menu').classList.add('hidden');
     document.getElementById('practice-area').classList.remove('hidden');
@@ -924,6 +984,7 @@ function handleTimeout() {
 }
 
 function markUnfamiliar() {
+    if (!currentQuestionData) return;
     mistakes.add(currentQuestionData.card.id);
     let btn = document.getElementById('btn-unfamiliar');
     btn.innerText = "已記錄";
@@ -981,6 +1042,10 @@ function saveResultFavoritesAndReturn() {
         }
     });
     saveFavs();
+
+    // Reset Header Buttons
+    document.getElementById('btn-open-fav').classList.remove('hidden');
+    document.getElementById('btn-unfamiliar').classList.add('hidden');
 
     document.getElementById('result-area').classList.add('hidden');
     document.getElementById('main-menu').classList.remove('hidden');
