@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>日檢自修室(單字卡)</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --text-color: #87ceeb;
+            --border-color: #4682b4;
+            --correct-color: #2e8b57;
+            --wrong-color: #b22222;
+            --btn-bg: #1a2a3a;
+            --btn-hover: #2a3a4a;
+        }
+
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        header {
+            position: sticky;
+            top: env(safe-area-inset-top);
+            background-color: rgba(10, 10, 10, 0.95);
+            padding: 10px 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 100;
+        }
+
+        h1 { margin: 0; font-size: 1.2rem; text-align: center; }
+
+        .header-btn-right {
+            position: absolute;
+            right: 15px;
+            background: var(--btn-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        main { flex: 1; padding: 15px; max-width: 600px; margin: 0 auto; width: 100%; }
+
+        .section-box {
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background-color: rgba(26, 42, 58, 0.3);
+        }
+
+        .section-title { font-size: 0.9rem; margin-bottom: 8px; font-weight: bold; border-bottom: 1px dashed var(--border-color); padding-bottom: 4px;}
+
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
+        .checkbox-item { display: flex; align-items: center; font-size: 0.9rem; }
+        .checkbox-item input { margin-right: 5px; }
+
+        .input-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .input-row input[type="number"], .input-row input[type="range"] { flex: 1; margin-left: 10px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); padding: 5px; }
+        
+        .btn {
+            display: block; width: 100%; padding: 12px; background: var(--btn-bg); color: var(--text-color);
+            border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; margin-bottom: 10px; cursor: pointer; text-align: center;
+        }
+        .btn:active { background: var(--btn-hover); }
+        .btn-half { display: inline-block; width: 48%; }
+
+        /* Practice Area */
+        #practice-area { display: flex; flex-direction: column; justify-content: center; position: relative;}
+        .progress-bar { font-size: 0.8rem; text-align: center; margin-bottom: 10px; letter-spacing: 2px;}
+        .timer { font-size: 0.9rem; text-align: center; margin-bottom: 20px; }
+        .question-box { font-size: 2rem; text-align: center; margin: 20px 0; min-height: 80px; display: flex; align-items: center; justify-content: center;}
+        
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .option-btn {
+            background: var(--btn-bg); border: 1px solid var(--border-color); color: var(--text-color);
+            padding: 15px; border-radius: 8px; font-size: 1rem; min-height: 60px; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s;
+        }
+        .option-btn.correct { background-color: var(--correct-color); color: white; border-color: white;}
+        .option-btn.wrong { background-color: var(--wrong-color); color: white; border-color: white;}
+
+        .manual-input-area { display: flex; flex-direction: column; gap: 10px; align-items: center;}
+        .manual-input { width: 100%; padding: 12px; font-size: 1.2rem; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); text-align: center; }
+
+        .hidden { display: none !important; }
+        .fade { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Modals */
+        dialog {
+            background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color);
+            border-radius: 8px; width: 90%; max-width: 500px; padding: 15px; top: 50%; transform: translateY(-50%);
+            margin: 0 auto; max-height: 80vh; overflow-y: auto; overscroll-behavior: contain;
+        }
+        dialog::backdrop { background: rgba(0, 0, 0, 0.8); }
+        .dialog-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px;}
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #333; font-size: 0.9rem;}
+        
+        /* Edit Form */
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 0.8rem; margin-bottom: 4px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; background: #000; color: var(--text-color); border: 1px solid var(--border-color); }
+        
+        #result-list { max-height: 40vh; overflow-y: auto; }
+        .textarea-csv { width: 100%; height: 100px; background: #000; color: var(--text-color); border: 1px solid var(--border-color); margin-bottom: 10px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>日檢自修室(單字卡)</h1>
+        <button class="header-btn-right" onclick="openFavorites()">收藏清單</button>
+    </header>
+
+    <!-- Main Menu -->
+    <main id="main-menu" class="fade">
+        <div class="section-box">
+            <div class="section-title">選擇級別</div>
+            <div class="checkbox-group" id="level-checks">
+                <label class="checkbox-item"><input type="checkbox" value="收藏" checked> 收藏</label>
+                <label class="checkbox-item"><input type="checkbox" value="N3" checked> N3</label>
+                <label class="checkbox-item"><input type="checkbox" value="N2" checked> N2</label>
+                <label class="checkbox-item"><input type="checkbox" value="N1" checked> N1</label>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <div class="section-title">選擇題型</div>
+            <div class="checkbox-group" id="type-checks">
+                <label class="checkbox-item"><input type="checkbox" value="pinyin" checked> 拼音</label>
+                <label class="checkbox-item"><input type="checkbox" value="zh_jp" checked> 中翻日</label>
+                <label class="checkbox-item"><input type="checkbox" value="jp_zh" checked> 日翻中</label>
+                <label class="checkbox-item"><input type="checkbox" value="manual" checked> 手輸</label>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <div class="input-row">
+                <span>題目數量</span>
+                <input type="number" id="question-count" value="20" min="1" max="999">
+            </div>
+            <div class="input-row">
+                <span>抽取字卡數量 (10~100)</span>
+                <input type="range" id="pool-size" min="10" max="105" step="5" value="50" oninput="updatePoolLabel()">
+                <span id="pool-label" style="margin-left: 10px; min-width: 40px; text-align: right;">50</span>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <div class="section-title">選擇練習類別</div>
+            <div class="checkbox-group" id="category-checks">
+                <label class="checkbox-item"><input type="checkbox" value="單字" checked> 單字</label>
+                <label class="checkbox-item"><input type="checkbox" value="語彙" checked> 語彙</label>
+            </div>
+        </div>
+
+        <button class="btn" onclick="openCardManager()">字卡清單 (新增/編輯)</button>
+        <button class="btn" style="background-color: #2e8b57; font-weight:bold;" onclick="startPractice()">開始練習</button>
+    </main>
+
+    <!-- Practice Area -->
+    <main id="practice-area" class="hidden">
+        <button id="btn-unfamiliar" class="header-btn-right" style="top: 10px;" onclick="markUnfamiliar()">我不熟</button>
+        <div class="progress-bar" id="progress-bar">[||||||||] 剩餘 0 題</div>
+        <div class="timer" id="timer-display">30</div>
+        
+        <div class="question-box" id="question-text">題目</div>
+        
+        <div id="options-area" class="options-grid"></div>
+        
+        <div id="manual-area" class="manual-input-area hidden">
+            <input type="text" id="manual-input" class="manual-input" placeholder="請輸入平假名拼音" autocomplete="off" autocorrect="off" autocapitalize="none">
+            <button class="btn" onclick="checkManualAnswer()">送出</button>
+        </div>
+    </main>
+
+    <!-- Result Area -->
+    <main id="result-area" class="hidden">
+        <h2 style="text-align: center;">測驗結算</h2>
+        <div id="score-display" style="text-align: center; font-size: 1.5rem; margin-bottom: 20px;"></div>
+        
+        <div class="section-box">
+            <div class="section-title">重點錯誤/不熟題目 (勾選加入收藏)</div>
+            <div id="result-list"></div>
+        </div>
+        <button class="btn" onclick="saveResultFavoritesAndReturn()">完成並返回主頁</button>
+    </main>
+
+    <!-- Favorites Modal -->
+    <dialog id="favorites-modal">
+        <div class="dialog-header">
+            <strong>收藏清單</strong>
+            <div>
+                <button onclick="toggleAllFavs(true)" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">全選</button>
+                <button onclick="toggleAllFavs(false)" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">取消</button>
+            </div>
+        </div>
+        <div id="fav-list" style="margin-bottom: 15px; max-height: 50vh; overflow-y: auto;"></div>
+        <div style="display: flex; justify-content: space-between;">
+            <button class="btn btn-half" onclick="document.getElementById('favorites-modal').close()">取消</button>
+            <button class="btn btn-half" onclick="applyFavoritesChanges()">確定變更</button>
+        </div>
+    </dialog>
+
+    <!-- Card Manager Modal -->
+    <dialog id="card-manager-modal">
+        <div class="dialog-header">
+            <strong>字卡清單</strong>
+            <button onclick="openEditForm()" style="background:var(--text-color); color:#000; border:none; padding:4px 8px; border-radius:4px;">新增字卡</button>
+        </div>
+        <textarea id="csv-io" class="textarea-csv" placeholder="您可以在此貼上CSV格式資料以大量匯入，或複製以備份。"></textarea>
+        <button class="btn" style="padding: 8px; font-size: 0.9rem;" onclick="importCSV()">匯入 CSV</button>
+        <div id="all-cards-list" style="margin-top:10px; max-height: 40vh; overflow-y: auto;"></div>
+        <button class="btn" style="margin-top:10px;" onclick="document.getElementById('card-manager-modal').close()">關閉</button>
+    </dialog>
+
+    <!-- Edit Form Modal -->
+    <dialog id="edit-form-modal">
+        <div class="dialog-header">
+            <strong id="edit-form-title">編輯字卡</strong>
+        </div>
+        <input type="hidden" id="edit-id">
+        <div class="form-group"><label>級別 (必填)</label><input type="text" id="edit-level" placeholder="例如: N1"></div>
+        <div class="form-group"><label>日文名稱 (無漢字留空)</label><input type="text" id="edit-kanji"></div>
+        <div class="form-group"><label>日文拼音 (必填)</label><input type="text" id="edit-kana"></div>
+        <div class="form-group"><label>類別 (必填)</label><select id="edit-category"><option value="單字">單字</option><option value="語彙">語彙</option></select></div>
+        <div class="form-group"><label>中文意思 (必填)</label><input type="text" id="edit-zh"></div>
+        
+        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+            <button class="btn btn-half" onclick="document.getElementById('edit-form-modal').close(); openCardManager();">取消</button>
+            <button class="btn btn-half" onclick="saveCard()">確定</button>
+        </div>
+    </dialog>
+
+<script>
+// --- Data & State ---
+const defaultCSV = `級別,日文名稱,日文拼音,類別,中文意思
+N1,危ぶむ,あやぶむ,單字,"感到危險"
+N1,案じる,あんじる,單字,"擔心"
+N1,歪む,ゆ/いがむ,單字,"歪"
+N1,営む,いとなむ,單字,"經營、從事"
+N1,挑む,いどむ,單字,"挑戰"
+N1,承る,うけたまわる,單字,"承接"
+N1,俯く,うつむく,單字,"向下看"
+N1,頷く,うなずく,單字,"點頭"
+N1,唸る,うなる,單字,"呻吟、讚嘆"
+N1,煽てる,おだてる,單字,"慫恿"
+N1,劣る,おとる,單字,"比不上、不如"
+N1,衰える,おとろえる,單字,"衰退"
+N1,怯える,おびえる,單字,"害怕、恐懼"
+N1,省みる,かえりみる,單字,"反省"
+N1,顧みる.,かえりみる.,單字,"回顧、在意"
+N1,掻き回す,かきまわす,單字,"攪拌"
+N1,,かさむ,單字,"增加、變多"
+N1,,かぶれる,單字,"發炎、紅腫"
+N1,着飾る,きかざる,單字,"打扮"
+N1,築く,きずく,單字,"蓋、築起"
+N1,鍛える,きたえる,單字,"鍛鍊"
+N1,興じる,きょうじる,單字,"享受、享樂"
+N1,食い違う,くいちがう,單字,"不一致"
+N1,朽ちる,くちる,單字,"腐朽"
+N1,覆す,くつがえす,單字,"顛覆"
+N1,蹴飛ばす,けとばす,單字,"踢飛"
+N1,貶す,けなす,單字,"貶低"
+N1,凝らす,こらす,單字,"凝聚、集中"
+N1,,さえずる,單字,"鳥鳴"
+N1,栄える,さかえる,單字,"繁榮"
+N1,差し支える,さしつかえる,單字,"有關係、受影響"
+N1,授ける,さずける,單字,"授予"
+N1,定まる,さだまる,單字,"訂定"
+N1,,さらう,單字,"綁架"
+N1,強いる,しいる,單字,"強迫"
+N1,,しくじる,單字,"失敗"
+N1,親しむ,したしむ,單字,"親近"
+N1,躾ける,しつける,單字,"訓練、教育"
+N1,準ずる,じゅんずる,單字,"以...為準"
+N1,掬う,すくう,單字,"撈"
+N1,沿う,そう,單字,"沿著"
+N1,即する,そくする,單字,"就、符合"
+N1,備わる,そなわる,單字,"具備"
+N1,聳える,そびえる,單字,"聳立"
+N1,染まる,そまる,單字,"(自)染上（顏色）"
+N1,染める,そめる,單字,"(他)染上（顏色）"
+N1,背く,そむく,單字,"違背、背叛"
+N1,携わる,たずさわる,單字,"從事"
+N1,漂う,ただよう,單字,"漂、飄"
+N1,立ち去る,たちさる,單字,"離開"
+N1,脱する,だっする,單字,"脫離"
+N1,立て替える,たてかえる,單字,"代墊"
+N1,辿る,たどる,單字,"跟著、追尋"
+N1,賜る,たまわる,單字,"受賜"
+N1,保つ,たもつ,單字,"保持"
+N1,弛む,たるむ,單字,"鬆弛"
+N1,費やす,ついやす,單字,"花費"
+N1,仕える,つかえる,單字,"服侍、侍奉"
+N1,司る,つかさどる,單字,"掌管、掌控"
+N1,謹む,つつしむ,單字,"恭謹"
+N1,突っ突く,つっつく,單字,"戳、捅"
+N1,突っ張る,つっぱる,單字,"撐著、緊繃"
+N1,,つねる,單字,"捏、掐"
+N1,募る,つのる,單字,"招募"
+N1,呟く,つぶやく,單字,"自言自語、碎碎念"
+N1,瞑る,つむる,單字,"閉眼"
+N1,貫く,つらぬく,單字,"貫徹"
+N1,出くわす,でくわす,單字,"遭遇"
+N1,解れる,ほぐれる,單字,"心情舒坦、解放"
+N1,偽る,いつわる,單字,"偽裝、說謊"
+N1,躊躇う,ためらう,單字,"躊躇猶豫"
+N1,最も,いとも,單字,"十分、非常"
+N1,侮る,あなどる,單字,"輕視"
+N1,罵る,ののしる,單字,"罵"
+N1,掲げる,かかげる,單字,"實現（目標）"
+N1,請け負う,うけおう,單字,"承擔"
+N1,掠れる,かすれる,單字,"掠過"
+N1,在り來たり,ありきたり,單字,"老套"
+N1,,デマ,單字,"謠言"
+N1,煩わしい,わずらわしい,單字,"麻煩的、煩瑣的"
+N1,些細な,ささいな,單字,"小小的、瑣碎的"
+N1,,しなやか,單字,"柔美、優美"
+N1,,ぐだぐだ,單字,"隨隨便便"
+N1,,つくづく,單字,"深切地（感受）"
+N1,端的に,たんてきに,單字,"直率地、開門見山地"
+N1,枯渇,こかつ,單字,"乾涸"
+N1,克明,こくめい,單字,"認真、細緻"
+N1,緊迫,きんぱく,單字,"緊迫"
+N1,,もどかしい,單字,"令人著急"
+N1,拗れる,こじれる,單字,"惡化"
+N1,溺れる,おぼれる,單字,"沈迷、迷戀"
+N1,凭れる,もたれる,單字,"憑靠、依靠"
+N1,,くつろい,單字,"愜意地"
+N1,有耶無耶,うやむや,單字,"含糊"
+N1,望ましい,のぞましい,單字,"最好的狀況下"
+N1,秘める,ひめる,單字,"刻意隱藏"
+N1,,しんなり,單字,"柔軟地"
+N1,,やんわり,單字,"委婉地"
+N1,,ひんなり,單字,"陰涼、冰冷"
+N1,,どっさり,單字,"大量的"
+N1,,どんより,單字,"昏暗的"
+N1,,ぐったり,單字,"精疲力盡的"
+N1,嫌味,いやみ,單字,"挖苦"
+N1,潔い,いさぎよい,單字,"乾脆、痛快地"
+N1,賑わう,にぎわう,單字,"熱鬧、繁盛"
+N1,紛らわしい,まぎらわしい,單字,"容易混淆的"
+N1,,もっともらしい,單字,"看似真實的"
+N1,,やつれる,單字,"憔悴"
+N1,冴える,さえる,單字,"清澈、鮮明"
+N1,脆い,もろい,單字,"脆弱、易壞"
+N1,諭す,さとす,單字,"說明"
+N1,,あやす,單字,"逗、哄"
+N1,潜伏,せんぷく,單字,"潛伏"
+N1,咄嗟に,とっさに,語彙,"瞬間、反射性地"
+N1,項垂れる,うなだれる,語彙,"負面情緒而低著頭"
+N1,棚上げ,たなあげ,語彙,"暫時擱置"
+N1,何ら,なんら,語彙,"絲毫（接否定）"
+N1,誇りに思う,ほこりにおもう,語彙,"感到驕傲""
+N2,縫う,ぬう,單字,"縫"
+N2,解く,ほどく,單字,"解消、解除"
+N2,驚かれる,おどろかれる,單字,"他人被我嚇到"
+N2,驚かされる,おどろかされる,單字,"我被他人嚇到"
+N2,陥る,おちいる,單字,"陷入（情況）"
+N2,怠る,おこたる,單字,"怠惰、疏忽"
+N2,,いっそ,單字,"乾脆"
+N2,僅かに,わずかに,單字,"少許"
+N2,遂げる,とげる,單字,"達成（目標）"
+N2,躓く,つまずく,單字,"踢到絆倒"
+N2,見合わせ,みあわせ,單字,"暫時推遲"
+N2,揶揄う,からかう,單字,"嘲笑"
+N2,,禮句に,單字,"早就…"
+N2,,じきに,單字,"不久"
+N2,,いまに,單字,"馬上"
+N2,疎か,おろそか,單字,"敷衍"
+N2,いい加減,いいかげん,單字,"敷衍"
+N2,手応え,てごたえ,單字,"把握"
+N2,相席,あいせき,單字,"拼桌"
+N2,,バックアップ,單字,"後盾、後援"
+N2,間柄,あいだがら,單字,"人與人的關係"
+N2,見栄え,みばえ,單字,"外觀氣派"
+N2,朗らかな,ほがらかな,單字,"爽朗"
+N2,慌らしい,あわただしい,單字,"慌慌張張"
+N2,,だらしない,單字,"邋遢"
+N2,,くだらない,單字,"無聊、沒意義"
+N2,,ぐずぐず,單字,"磨磨蹭蹭"
+N2,,はきはき,單字,"乾脆、簡潔"
+N2,精々,せいぜい,單字,"盡量、頂多"
+N2,,しみじみ,單字,"深切地"
+N2,近々,ちかぢか,單字,"不久、就近"
+N2,,ぎっしり,單字,"滿滿的"
+N2,,かろうじて,單字,"勉強、好不容易"
+N2,閃いた,ひらめいた,單字,"閃過好點子"
+N2,手厚く,てあつく,單字,"周到地"
+N2,切り出す,きりだす,單字,"開口"
+N2,襲われる,おそわれる,單字,"被襲擊"
+N2,語り合う,かたりあう,單字,"交談（生硬）"
+N2,堪える,こらえる,單字,"忍住"
+N2,背骨,せぼね,單字,"背骨"
+N2,実践,じっせん,單字,"實踐"
+N2,決着,けっちゃく,單字,"解決（紛爭、爭論）"
+N2,次第に,しだいに,單字,"漸漸地"
+N2,仕草,しぐさ,單字,"舉止"
+N2,定年,ていねん,單字,"退休年齡"
+N2,善良,ぜんりょう,單字,"善良"
+N2,方言,ほうげん,單字,"方言"
+N2,目がなく,めがなく,語彙,"無法抵抗（喜歡）"
+N2,,ろくな,語彙,"像樣的事情"
+N2,情けない,なさけない,語彙,"令人遺憾的"
+N2,張切る,はりきる,語彙,"繃緊、幹勁十足"
+N2,,ありふれる,語彙,"平常、平凡"
+N2,穏やかな,おだやかな,語彙,"平穩的"
+N2,相応しい,ふさわしい,語彙,"適配的"
+N2,末に,すえに,語彙,"經過…最後還是"
+N2,大凡,おおよそ,語彙,"大概"
+N2,威張ってる,いばってる,語彙,"耍威風"
+N2,着々,ちゃくちゃく,語彙,"順利進行"
+N2,,～といった,語彙,"列舉事物"
+N3,伝える,つたえる,單字,"傳達、告訴"
+N3,枯れる,かれ,單字,"枯萎"
+N3,詰める,つめる,單字,"裝進、塞入"
+N3,積もる,つもる,單字,"堆積"
+N3,,くっつける,單字,"貼上、黏上"
+N3,解く,とく,單字,"解決、解開"
+N3,雇う,やとう,單字,"雇用"
+N3,務める,つとめる,單字,"任職、服務"
+N3,触れる,ふれる,單字,"接觸"
+N3,觸る,さわる,單字,"觸摸"
+N3,散らかる,ちらかる,單字,"凌亂"
+N3,散る,ちる,單字,"凋零"
+N3,飛び出す,とびだす,單字,"衝出去"
+N3,飛び込む,とびこむ,單字,"飛入、跳入"
+N3,通り過ぎる,とおりすぎる,單字,"越過、經過"
+N3,通りかかる,とおりかかる,單字,"路過"
+N3,受け取る,うけとる,單字,"領取、接收"
+N3,受け持つ,うけもつ,單字,"擔任、負責"
+N3,受け入れる,うけいれる,單字,"收納、接納"
+N3,受け付ける,うけつける,單字,"接受、受理"
+N3,教わる,おそわる,單字,"受教"
+N3,言い合う,いいあう,單字,"爭論"
+N3,迎える,むかえる,單字,"迎接"
+N3,見送る,みおくる,單字,"見送、送行"
+N3,招く,まねく,單字,"邀請"
+N3,道の角,みちのかど,單字,"路口"
+N3,道の端,みちのはし,單字,"路邊"
+N3,末っ子,すえっこ,單字,"老么"
+N3,經濟,けいざい,單字,"經濟"
+N3,再來週,さらいしゅう,單字,"下下週"
+N3,,のろのろ,單字,"緩慢移動"
+N3,,ぶらぶら,單字,"閒晃"
+N3,,はっきり,單字,"明瞭地（り）"
+N3,,うっかり,單字,"粗心地"
+N3,,すっかり,單字,"完全地"
+N3,,がっかり,單字,"失望地"
+N3,,そっくり,單字,"一模一樣"
+N3,広々,ひろびろ,單字,"寬廣"
+N3,確かに,たしかに,單字,"確實地"
+N3,確か,たしか,單字,"應該喔、聽說是"
+N3,思い込み,おもいこみ,單字,"堅信"
+N3,平等,びょうどう,單字,"平等"
+N3,絶えず,たえず,單字,"不斷地、無休止地"
+N3,暮れ,くれ,單字,"年末"
+N3,口を利く,くちをきく,語彙,"說話"
+N3,口にする,くちにする,語彙,"吃、提到"
+N3,耳にする,みみにする,語彙,"聽到"
+N3,頭に来る,あたまにくる,語彙,"生氣"
+N3,腹が立つ,はらがたつ,語彙,"生氣"`;
+
+let db = [];
+let favIds = new Set(JSON.parse(localStorage.getItem('jp_favs') || '[]'));
+let practiceQueue = [];
+let currentQIndex = 0;
+let score = 0;
+let timerInt;
+let timeLeft = 30;
+let mistakes = new Set(); // Stores card IDs that were answered wrong or marked unfamiliar
+let currentQuestionData = null;
+
+// --- Initialization ---
+function init() {
+    let customData = localStorage.getItem('jp_custom_db');
+    if (customData) {
+        db = JSON.parse(customData);
+    } else {
+        parseCSV(defaultCSV, true);
+    }
+}
+
+function parseCSV(csvText, replace = false) {
+    const lines = csvText.trim().split('\n');
+    let newDb = replace ? [] : db;
+    let maxId = newDb.length > 0 ? Math.max(...newDb.map(c => c.id)) : 0;
+    
+    // skip header if exists
+    let startIndex = lines[0].includes('級別') ? 1 : 0;
+    
+    for (let i = startIndex; i < lines.length; i++) {
+        let parts = lines[i].split(',').map(s => s.replace(/(^"|"$)/g, '').trim());
+        if (parts.length >= 5) {
+            newDb.push({
+                id: ++maxId,
+                level: parts[0],
+                kanji: parts[1] || '',
+                kana: parts[2],
+                category: parts[3],
+                zh: parts[4]
+            });
+        }
+    }
+    db = newDb;
+    saveDB();
+}
+
+function saveDB() {
+    localStorage.setItem('jp_custom_db', JSON.stringify(db));
+}
+function saveFavs() {
+    localStorage.setItem('jp_favs', JSON.stringify([...favIds]));
+}
+
+// --- UI Logic ---
+function updatePoolLabel() {
+    let val = document.getElementById('pool-size').value;
+    document.getElementById('pool-label').innerText = val > 100 ? 'MAX' : val;
+}
+
+// --- Card Manager & Edit Form ---
+function openCardManager() {
+    const list = document.getElementById('all-cards-list');
+    list.innerHTML = '';
+    db.forEach(card => {
+        let div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+            <span>[${card.level}] ${card.kanji || card.kana} ${card.zh}</span>
+            <button onclick="openEditForm(${card.id})" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">編輯</button>
+        `;
+        list.appendChild(div);
+    });
+    
+    // Generate CSV for export
+    let csvStr = "級別,日文名稱,日文拼音,類別,中文意思\n";
+    db.forEach(c => csvStr += `${c.level},${c.kanji},${c.kana},${c.category},"${c.zh}"\n`);
+    document.getElementById('csv-io').value = csvStr;
+    
+    document.getElementById('card-manager-modal').showModal();
+}
+
+function importCSV() {
+    const text = document.getElementById('csv-io').value;
+    if(confirm('匯入將會清除現有資料並以此內容為主，確定嗎？(若要追加，請確保包含舊有資料)')) {
+        parseCSV(text, true);
+        alert('匯入完成');
+        openCardManager();
+    }
+}
+
+function openEditForm(id = null) {
+    document.getElementById('card-manager-modal').close();
+    const form = document.getElementById('edit-form-modal');
+    if (id) {
+        document.getElementById('edit-form-title').innerText = '編輯字卡';
+        const card = db.find(c => c.id === id);
+        document.getElementById('edit-id').value = card.id;
+        document.getElementById('edit-level').value = card.level;
+        document.getElementById('edit-kanji').value = card.kanji;
+        document.getElementById('edit-kana').value = card.kana;
+        document.getElementById('edit-category').value = card.category;
+        document.getElementById('edit-zh').value = card.zh;
+    } else {
+        document.getElementById('edit-form-title').innerText = '新增字卡';
+        document.getElementById('edit-id').value = '';
+        document.getElementById('edit-level').value = 'N1';
+        document.getElementById('edit-kanji').value = '';
+        document.getElementById('edit-kana').value = '';
+        document.getElementById('edit-category').value = '單字';
+        document.getElementById('edit-zh').value = '';
+    }
+    form.showModal();
+}
+
+function saveCard() {
+    const id = document.getElementById('edit-id').value;
+    const cardData = {
+        level: document.getElementById('edit-level').value.trim(),
+        kanji: document.getElementById('edit-kanji').value.trim(),
+        kana: document.getElementById('edit-kana').value.trim(),
+        category: document.getElementById('edit-category').value,
+        zh: document.getElementById('edit-zh').value.trim()
+    };
+    if (!cardData.level || !cardData.kana || !cardData.category || !cardData.zh) {
+        alert('必填欄位不可空白'); return;
+    }
+
+    if (id) {
+        let index = db.findIndex(c => c.id == id);
+        if(index > -1) {
+            db[index] = { ...db[index], ...cardData };
+        }
+    } else {
+        cardData.id = db.length > 0 ? Math.max(...db.map(c => c.id)) + 1 : 1;
+        db.push(cardData);
+    }
+    saveDB();
+    document.getElementById('edit-form-modal').close();
+    openCardManager();
+}
+
+// --- Favorites Modal ---
+function openFavorites() {
+    const list = document.getElementById('fav-list');
+    list.innerHTML = '';
+    let favCards = db.filter(c => favIds.has(c.id));
+    
+    if (favCards.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding: 20px;">尚無收藏</div>';
+    } else {
+        favCards.forEach(card => {
+            let div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `
+                <span>[${card.level}] ${card.kanji || card.kana} - ${card.zh}</span>
+                <input type="checkbox" class="fav-checkbox" value="${card.id}" checked>
+            `;
+            list.appendChild(div);
+        });
+    }
+    document.getElementById('favorites-modal').showModal();
+}
+
+function toggleAllFavs(state) {
+    document.querySelectorAll('.fav-checkbox').forEach(cb => cb.checked = state);
+}
+
+function applyFavoritesChanges() {
+    const checkboxes = document.querySelectorAll('.fav-checkbox');
+    checkboxes.forEach(cb => {
+        if (!cb.checked) {
+            favIds.delete(parseInt(cb.value));
+        }
+    });
+    saveFavs();
+    document.getElementById('favorites-modal').close();
+}
+
+// --- Practice Engine ---
+function getCheckedValues(selector) {
+    return Array.from(document.querySelectorAll(selector + ' input:checked')).map(cb => cb.value);
+}
+
+function startPractice() {
+    const levels = getCheckedValues('#level-checks');
+    const types = getCheckedValues('#type-checks');
+    const categories = getCheckedValues('#category-checks');
+    const reqQCount = parseInt(document.getElementById('question-count').value);
+    const poolSizeVal = parseInt(document.getElementById('pool-size').value);
+    const poolMax = poolSizeVal > 100 ? 9999 : poolSizeVal;
+
+    if (levels.length === 0 || types.length === 0 || categories.length === 0 || isNaN(reqQCount)) {
+        alert("級別、題型、類別至少需勾選一項，且題目數量必須為數字。"); return;
+    }
+
+    // 1. Build Pool
+    let eligibleCards = db.filter(c => categories.includes(c.category));
+    let pool = [];
+    
+    // Prioritize favorites if checked
+    if (levels.includes("收藏")) {
+        let favCards = eligibleCards.filter(c => favIds.has(c.id));
+        shuffleArray(favCards);
+        pool.push(...favCards);
+    }
+    
+    // Add other selected levels
+    let otherLevels = levels.filter(l => l !== "收藏");
+    if (otherLevels.length > 0) {
+        let otherCards = eligibleCards.filter(c => otherLevels.includes(c.level) && !pool.some(p => p.id === c.id));
+        shuffleArray(otherCards);
+        pool.push(...otherCards);
+    }
+
+    // Limit pool size
+    pool = pool.slice(0, poolMax);
+
+    if (pool.length === 0) {
+        alert("所選條件內沒有可用的字卡。"); return;
+    }
+
+    // 2. Generate Questions
+    practiceQueue = [];
+    mistakes.clear();
+    score = 0;
+    
+    let lastCardId = -1;
+    for (let i = 0; i < reqQCount; i++) {
+        // filter out invalid types for current pool state if needed, but easier to just pick a card then pick a valid type
+        let validCards = pool.filter(c => c.id !== lastCardId);
+        if (validCards.length === 0) validCards = pool; // fallback
+        
+        let card = validCards[Math.floor(Math.random() * validCards.length)];
+        lastCardId = card.id;
+
+        // Determine valid types for this card
+        let cardValidTypes = types.filter(t => {
+            if ((t === 'pinyin' || t === 'manual') && !card.kanji) return false;
+            return true;
+        });
+
+        if (cardValidTypes.length === 0) {
+            // Force a type if standard ones fail due to lack of Kanji
+            cardValidTypes = types.includes('jp_zh') ? ['jp_zh'] : ['zh_jp'];
+        }
+
+        let type = cardValidTypes[Math.floor(Math.random() * cardValidTypes.length)];
+        practiceQueue.push({ card, type, pool });
+    }
+
+    // Transition UI
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('practice-area').classList.remove('hidden');
+    document.getElementById('practice-area').classList.add('fade');
+    
+    currentQIndex = 0;
+    renderQuestion();
+}
+
+function getDistractors(correctCard, pool, count, logicType) {
+    let distractors = pool.filter(c => c.id !== correctCard.id && c.category === correctCard.category);
+    
+    if (logicType === 'pinyin') {
+        // Try to find distractors with similar kana length
+        let similar = distractors.filter(c => c.kana.length === correctCard.kana.length);
+        if (similar.length >= count) {
+            distractors = similar;
+        }
+    }
+    
+    shuffleArray(distractors);
+    return distractors.slice(0, count);
+}
+
+function renderQuestion() {
+    if (currentQIndex >= practiceQueue.length) {
+        endPractice();
+        return;
+    }
+
+    let qData = practiceQueue[currentQIndex];
+    currentQuestionData = qData;
+    let card = qData.card;
+    let type = qData.type;
+
+    // Reset UI
+    document.getElementById('options-area').innerHTML = '';
+    document.getElementById('manual-area').classList.add('hidden');
+    document.getElementById('options-area').classList.remove('hidden');
+    document.getElementById('manual-input').value = '';
+    
+    let remainStr = `[`;
+    let blockCount = 8;
+    let fill = Math.floor((currentQIndex / practiceQueue.length) * blockCount);
+    for(let i=0; i<blockCount; i++) remainStr += i < fill ? '|' : ' ';
+    remainStr += `] 剩餘 ${practiceQueue.length - currentQIndex} 題`;
+    document.getElementById('progress-bar').innerText = remainStr;
+    
+    // Re-trigger animation
+    const pArea = document.getElementById('practice-area');
+    pArea.classList.remove('fade');
+    void pArea.offsetWidth; // trigger reflow
+    pArea.classList.add('fade');
+
+    let questionText = "";
+    let correctStr = "";
+    let optionsList = [];
+
+    if (type === 'pinyin') {
+        questionText = card.kanji;
+        correctStr = card.kana;
+        let dist = getDistractors(card, qData.pool, 3, 'pinyin').map(c => c.kana);
+        optionsList = [correctStr, ...dist];
+    } else if (type === 'zh_jp') {
+        questionText = card.zh;
+        correctStr = card.kana; // 優先以平假名拼音為主
+        let dist = getDistractors(card, qData.pool, 3, 'standard').map(c => c.kana);
+        optionsList = [correctStr, ...dist];
+    } else if (type === 'jp_zh') {
+        questionText = card.kana; // 優先以平假名拼音為主
+        correctStr = card.zh;
+        let dist = getDistractors(card, qData.pool, 3, 'standard').map(c => c.zh);
+        optionsList = [correctStr, ...dist];
+    } else if (type === 'manual') {
+        questionText = card.kanji;
+        correctStr = card.kana;
+        document.getElementById('options-area').classList.add('hidden');
+        document.getElementById('manual-area').classList.remove('hidden');
+        document.getElementById('manual-input').focus();
+    }
+
+    document.getElementById('question-text').innerText = questionText;
+
+    if (type !== 'manual') {
+        // Ensure 4 options by filling duplicates if pool is too small (failsafe)
+        while(optionsList.length < 4) optionsList.push(optionsList[0] + " "); 
+        optionsList = [...new Set(optionsList)]; // remove exact duplicates if logic failed
+        while(optionsList.length < 4) optionsList.push("...");
+
+        shuffleArray(optionsList);
+        optionsList.forEach(opt => {
+            let btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            btn.onclick = () => handleChoice(btn, opt === correctStr, correctStr);
+            document.getElementById('options-area').appendChild(btn);
+        });
+    }
+
+    startTimer();
+}
+
+function startTimer() {
+    clearInterval(timerInt);
+    timeLeft = 30;
+    document.getElementById('timer-display').innerText = timeLeft;
+    timerInt = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer-display').innerText = timeLeft;
+        if (timeLeft <= 0) {
+            clearInterval(timerInt);
+            handleTimeout();
+        }
+    }, 1000);
+}
+
+function handleChoice(btn, isCorrect, correctStr) {
+    clearInterval(timerInt);
+    let btns = document.querySelectorAll('.option-btn');
+    btns.forEach(b => b.disabled = true);
+
+    if (isCorrect) {
+        btn.classList.add('correct');
+        score++;
+    } else {
+        btn.classList.add('wrong');
+        mistakes.add(currentQuestionData.card.id);
+        btns.forEach(b => {
+            if (b.innerText === correctStr) b.classList.add('correct');
+        });
+    }
+    setTimeout(nextQuestion, 1000);
+}
+
+function checkManualAnswer() {
+    clearInterval(timerInt);
+    let val = document.getElementById('manual-input').value.trim();
+    let isCorrect = val === currentQuestionData.card.kana;
+    
+    if (isCorrect) {
+        document.getElementById('manual-input').style.backgroundColor = varColor('--correct-color');
+        score++;
+    } else {
+        document.getElementById('manual-input').style.backgroundColor = varColor('--wrong-color');
+        mistakes.add(currentQuestionData.card.id);
+        document.getElementById('manual-input').value = `正確: ${currentQuestionData.card.kana}`;
+    }
+    setTimeout(() => {
+        document.getElementById('manual-input').style.backgroundColor = '';
+        nextQuestion();
+    }, 1500);
+}
+
+function handleTimeout() {
+    mistakes.add(currentQuestionData.card.id);
+    if (currentQuestionData.type !== 'manual') {
+        let btns = document.querySelectorAll('.option-btn');
+        btns.forEach(b => {
+            b.disabled = true;
+            if (b.innerText === currentQuestionData.card.kana || b.innerText === currentQuestionData.card.zh) {
+                b.classList.add('correct');
+            }
+        });
+    }
+    setTimeout(nextQuestion, 1000);
+}
+
+function markUnfamiliar() {
+    mistakes.add(currentQuestionData.card.id);
+    let btn = document.getElementById('btn-unfamiliar');
+    btn.innerText = "已記錄";
+    btn.style.backgroundColor = "#b22222";
+    setTimeout(() => {
+        btn.innerText = "我不熟";
+        btn.style.backgroundColor = "var(--btn-bg)";
+    }, 1000);
+}
+
+function nextQuestion() {
+    currentQIndex++;
+    renderQuestion();
+}
+
+function varColor(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+// --- Result Screen ---
+function endPractice() {
+    document.getElementById('practice-area').classList.add('hidden');
+    document.getElementById('result-area').classList.remove('hidden');
+    document.getElementById('result-area').classList.add('fade');
+
+    let total = practiceQueue.length;
+    let rate = Math.round((score / total) * 100);
+    document.getElementById('score-display').innerText = `正解率: ${rate}% (${score}/${total})`;
+
+    const list = document.getElementById('result-list');
+    list.innerHTML = '';
+    
+    if (mistakes.size === 0) {
+        list.innerHTML = '<div style="text-align:center;">無錯誤項目，完美！</div>';
+    } else {
+        mistakes.forEach(id => {
+            let card = db.find(c => c.id === id);
+            if(card) {
+                let div = document.createElement('div');
+                div.className = 'list-item';
+                let isFav = favIds.has(card.id) ? 'checked' : '';
+                div.innerHTML = `
+                    <span>[${card.level}] ${card.kanji || card.kana} - ${card.zh}</span>
+                    <input type="checkbox" class="result-fav-cb" value="${card.id}" ${isFav}>
+                `;
+                list.appendChild(div);
+            }
+        });
+    }
+}
+
+function saveResultFavoritesAndReturn() {
+    const checkboxes = document.querySelectorAll('.result-fav-cb');
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            favIds.add(parseInt(cb.value));
+        } else {
+            favIds.delete(parseInt(cb.value));
+        }
+    });
+    saveFavs();
+
+    document.getElementById('result-area').classList.add('hidden');
+    document.getElementById('main-menu').classList.remove('hidden');
+    document.getElementById('main-menu').classList.add('fade');
+}
+
+// --- Utilities ---
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+// Start
+init();
+
+// Enter key support for manual input
+document.getElementById('manual-input').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') checkManualAnswer();
+});
+</script>
+</body>
+</html>
