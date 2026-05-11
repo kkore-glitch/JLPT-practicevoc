@@ -57,6 +57,18 @@
             font-size: 0.8rem;
         }
 
+        .header-btn-left {
+            position: absolute;
+            left: 15px;
+            background: var(--btn-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            z-index: 10;
+        }
+
         main { flex: 1; padding: 15px; max-width: 600px; margin: 0 auto; width: 100%; }
 
         .section-box {
@@ -85,9 +97,9 @@
 
         /* Practice Area */
         #practice-area { display: flex; flex-direction: column; justify-content: center; position: relative;}
-        .progress-bar { font-size: 0.8rem; text-align: center; margin-bottom: 10px; letter-spacing: 2px;}
-        .timer { font-size: 0.9rem; text-align: center; margin-bottom: 20px; }
-        .question-box { font-size: 2rem; text-align: center; margin: 20px 0; min-height: 80px; display: flex; align-items: center; justify-content: center;}
+        .progress-bar { font-size: 0.9rem; text-align: center; margin-bottom: 10px; letter-spacing: 1px;}
+        .timer { font-size: 2rem; font-weight: bold; text-align: center; margin-bottom: 10px; }
+        .question-box { font-size: 2rem; text-align: center; margin: 15px 0; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center;}
         
         .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .option-btn {
@@ -178,8 +190,8 @@
 
     <!-- Practice Area -->
     <main id="practice-area" class="hidden">
-        <button id="btn-unfamiliar" class="header-btn-right" style="top: 10px;" onclick="markUnfamiliar()">我不熟</button>
-        <div class="progress-bar" id="progress-bar">[||||||||] 剩餘 0 題</div>
+        <button id="btn-unfamiliar" class="header-btn-left" style="top: 10px;" onclick="markUnfamiliar()">我不熟</button>
+        <div class="progress-bar" id="progress-bar">剩餘 0 題</div>
         <div class="timer" id="timer-display">30</div>
         
         <div class="question-box" id="question-text">題目</div>
@@ -188,8 +200,10 @@
         
         <div id="manual-area" class="manual-input-area hidden">
             <input type="text" id="manual-input" class="manual-input" placeholder="請輸入平假名拼音" autocomplete="off" autocorrect="off" autocapitalize="none">
-            <button class="btn" onclick="checkManualAnswer()">送出</button>
+            <button id="btn-manual-submit" class="btn" onclick="checkManualAnswer()">送出</button>
         </div>
+
+        <button id="btn-next" class="btn hidden" style="margin-top: 20px; background-color: #2e8b57;" onclick="nextQuestion()">下一題</button>
     </main>
 
     <!-- Result Area -->
@@ -487,7 +501,7 @@ let currentQIndex = 0;
 let score = 0;
 let timerInt;
 let timeLeft = 30;
-let mistakes = new Set(); // Stores card IDs that were answered wrong or marked unfamiliar
+let mistakes = new Set();
 let currentQuestionData = null;
 
 // --- Initialization ---
@@ -505,7 +519,6 @@ function parseCSV(csvText, replace = false) {
     let newDb = replace ? [] : db;
     let maxId = newDb.length > 0 ? Math.max(...newDb.map(c => c.id)) : 0;
     
-    // skip header if exists
     let startIndex = lines[0].includes('級別') ? 1 : 0;
     
     for (let i = startIndex; i < lines.length; i++) {
@@ -552,7 +565,6 @@ function openCardManager() {
         list.appendChild(div);
     });
     
-    // Generate CSV for export
     let csvStr = "級別,日文名稱,日文拼音,類別,中文意思\n";
     db.forEach(c => csvStr += `${c.level},${c.kanji},${c.kana},${c.category},"${c.zh}"\n`);
     document.getElementById('csv-io').value = csvStr;
@@ -674,18 +686,15 @@ function startPractice() {
         alert("級別、題型、類別至少需勾選一項，且題目數量必須為數字。"); return;
     }
 
-    // 1. Build Pool
     let eligibleCards = db.filter(c => categories.includes(c.category));
     let pool = [];
     
-    // Prioritize favorites if checked
     if (levels.includes("收藏")) {
         let favCards = eligibleCards.filter(c => favIds.has(c.id));
         shuffleArray(favCards);
         pool.push(...favCards);
     }
     
-    // Add other selected levels
     let otherLevels = levels.filter(l => l !== "收藏");
     if (otherLevels.length > 0) {
         let otherCards = eligibleCards.filter(c => otherLevels.includes(c.level) && !pool.some(p => p.id === c.id));
@@ -693,35 +702,30 @@ function startPractice() {
         pool.push(...otherCards);
     }
 
-    // Limit pool size
     pool = pool.slice(0, poolMax);
 
     if (pool.length === 0) {
         alert("所選條件內沒有可用的字卡。"); return;
     }
 
-    // 2. Generate Questions
     practiceQueue = [];
     mistakes.clear();
     score = 0;
     
     let lastCardId = -1;
     for (let i = 0; i < reqQCount; i++) {
-        // filter out invalid types for current pool state if needed, but easier to just pick a card then pick a valid type
         let validCards = pool.filter(c => c.id !== lastCardId);
-        if (validCards.length === 0) validCards = pool; // fallback
+        if (validCards.length === 0) validCards = pool;
         
         let card = validCards[Math.floor(Math.random() * validCards.length)];
         lastCardId = card.id;
 
-        // Determine valid types for this card
         let cardValidTypes = types.filter(t => {
             if ((t === 'pinyin' || t === 'manual') && !card.kanji) return false;
             return true;
         });
 
         if (cardValidTypes.length === 0) {
-            // Force a type if standard ones fail due to lack of Kanji
             cardValidTypes = types.includes('jp_zh') ? ['jp_zh'] : ['zh_jp'];
         }
 
@@ -729,7 +733,6 @@ function startPractice() {
         practiceQueue.push({ card, type, pool });
     }
 
-    // Transition UI
     document.getElementById('main-menu').classList.add('hidden');
     document.getElementById('practice-area').classList.remove('hidden');
     document.getElementById('practice-area').classList.add('fade');
@@ -742,7 +745,6 @@ function getDistractors(correctCard, pool, count, logicType) {
     let distractors = pool.filter(c => c.id !== correctCard.id && c.category === correctCard.category);
     
     if (logicType === 'pinyin') {
-        // Try to find distractors with similar kana length
         let similar = distractors.filter(c => c.kana.length === correctCard.kana.length);
         if (similar.length >= count) {
             distractors = similar;
@@ -768,19 +770,29 @@ function renderQuestion() {
     document.getElementById('options-area').innerHTML = '';
     document.getElementById('manual-area').classList.add('hidden');
     document.getElementById('options-area').classList.remove('hidden');
-    document.getElementById('manual-input').value = '';
+    document.getElementById('btn-next').classList.add('hidden');
     
-    let remainStr = `[`;
-    let blockCount = 8;
-    let fill = Math.floor((currentQIndex / practiceQueue.length) * blockCount);
-    for(let i=0; i<blockCount; i++) remainStr += i < fill ? '|' : ' ';
-    remainStr += `] 剩餘 ${practiceQueue.length - currentQIndex} 題`;
-    document.getElementById('progress-bar').innerText = remainStr;
+    let manualInput = document.getElementById('manual-input');
+    manualInput.value = '';
+    manualInput.disabled = false;
+    manualInput.style.backgroundColor = '';
+    document.getElementById('btn-manual-submit').disabled = false;
     
-    // Re-trigger animation
+    // Set unfamiliar button state
+    let unfamBtn = document.getElementById('btn-unfamiliar');
+    if (mistakes.has(card.id)) {
+        unfamBtn.innerText = "已記錄";
+        unfamBtn.style.backgroundColor = "#b22222";
+    } else {
+        unfamBtn.innerText = "我不熟";
+        unfamBtn.style.backgroundColor = "var(--btn-bg)";
+    }
+
+    document.getElementById('progress-bar').innerText = `剩餘 ${practiceQueue.length - currentQIndex} 題`;
+    
     const pArea = document.getElementById('practice-area');
     pArea.classList.remove('fade');
-    void pArea.offsetWidth; // trigger reflow
+    void pArea.offsetWidth;
     pArea.classList.add('fade');
 
     let questionText = "";
@@ -788,34 +800,33 @@ function renderQuestion() {
     let optionsList = [];
 
     if (type === 'pinyin') {
-        questionText = card.kanji;
+        questionText = `<div style="font-size: 2rem;">${card.kanji}</div>`;
         correctStr = card.kana;
         let dist = getDistractors(card, qData.pool, 3, 'pinyin').map(c => c.kana);
         optionsList = [correctStr, ...dist];
     } else if (type === 'zh_jp') {
-        questionText = card.zh;
-        correctStr = card.kana; // 優先以平假名拼音為主
+        questionText = `<div style="font-size: 2rem;">${card.zh}</div>`;
+        correctStr = card.kana;
         let dist = getDistractors(card, qData.pool, 3, 'standard').map(c => c.kana);
         optionsList = [correctStr, ...dist];
     } else if (type === 'jp_zh') {
-        questionText = card.kana; // 優先以平假名拼音為主
+        questionText = `<div style="font-size: 2rem;">${card.kana}</div>`;
         correctStr = card.zh;
         let dist = getDistractors(card, qData.pool, 3, 'standard').map(c => c.zh);
         optionsList = [correctStr, ...dist];
     } else if (type === 'manual') {
-        questionText = card.kanji;
+        questionText = `<div style="font-size: 2rem;">${card.kanji}</div>`;
         correctStr = card.kana;
         document.getElementById('options-area').classList.add('hidden');
         document.getElementById('manual-area').classList.remove('hidden');
         document.getElementById('manual-input').focus();
     }
 
-    document.getElementById('question-text').innerText = questionText;
+    document.getElementById('question-text').innerHTML = questionText;
 
     if (type !== 'manual') {
-        // Ensure 4 options by filling duplicates if pool is too small (failsafe)
         while(optionsList.length < 4) optionsList.push(optionsList[0] + " "); 
-        optionsList = [...new Set(optionsList)]; // remove exact duplicates if logic failed
+        optionsList = [...new Set(optionsList)];
         while(optionsList.length < 4) optionsList.push("...");
 
         shuffleArray(optionsList);
@@ -845,6 +856,19 @@ function startTimer() {
     }, 1000);
 }
 
+function showAnswerDetails() {
+    let card = currentQuestionData.card;
+    let displayHtml = "";
+    if (card.kanji) {
+        displayHtml += `<div style="font-size: 1.8rem; color: #fff;">${card.kanji}</div>`;
+    }
+    displayHtml += `<div style="font-size: 1.2rem; color: #aaa; margin-top: 5px;">${card.kana}</div>`;
+    displayHtml += `<div style="font-size: 1.2rem; color: #87ceeb; margin-top: 5px;">${card.zh}</div>`;
+    
+    document.getElementById('question-text').innerHTML = displayHtml;
+    document.getElementById('btn-next').classList.remove('hidden');
+}
+
 function handleChoice(btn, isCorrect, correctStr) {
     clearInterval(timerInt);
     let btns = document.querySelectorAll('.option-btn');
@@ -860,26 +884,26 @@ function handleChoice(btn, isCorrect, correctStr) {
             if (b.innerText === correctStr) b.classList.add('correct');
         });
     }
-    setTimeout(nextQuestion, 1000);
+    showAnswerDetails();
 }
 
 function checkManualAnswer() {
     clearInterval(timerInt);
-    let val = document.getElementById('manual-input').value.trim();
+    let manualInput = document.getElementById('manual-input');
+    let val = manualInput.value.trim();
     let isCorrect = val === currentQuestionData.card.kana;
     
+    manualInput.disabled = true;
+    document.getElementById('btn-manual-submit').disabled = true;
+
     if (isCorrect) {
-        document.getElementById('manual-input').style.backgroundColor = varColor('--correct-color');
+        manualInput.style.backgroundColor = varColor('--correct-color');
         score++;
     } else {
-        document.getElementById('manual-input').style.backgroundColor = varColor('--wrong-color');
+        manualInput.style.backgroundColor = varColor('--wrong-color');
         mistakes.add(currentQuestionData.card.id);
-        document.getElementById('manual-input').value = `正確: ${currentQuestionData.card.kana}`;
     }
-    setTimeout(() => {
-        document.getElementById('manual-input').style.backgroundColor = '';
-        nextQuestion();
-    }, 1500);
+    showAnswerDetails();
 }
 
 function handleTimeout() {
@@ -892,8 +916,11 @@ function handleTimeout() {
                 b.classList.add('correct');
             }
         });
+    } else {
+        document.getElementById('manual-input').disabled = true;
+        document.getElementById('btn-manual-submit').disabled = true;
     }
-    setTimeout(nextQuestion, 1000);
+    showAnswerDetails();
 }
 
 function markUnfamiliar() {
@@ -901,10 +928,6 @@ function markUnfamiliar() {
     let btn = document.getElementById('btn-unfamiliar');
     btn.innerText = "已記錄";
     btn.style.backgroundColor = "#b22222";
-    setTimeout(() => {
-        btn.innerText = "我不熟";
-        btn.style.backgroundColor = "var(--btn-bg)";
-    }, 1000);
 }
 
 function nextQuestion() {
@@ -977,7 +1000,7 @@ init();
 
 // Enter key support for manual input
 document.getElementById('manual-input').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') checkManualAnswer();
+    if (e.key === 'Enter' && !this.disabled) checkManualAnswer();
 });
 </script>
 </body>
