@@ -22,7 +22,6 @@
             color: var(--text-color);
             margin: 0;
             padding: 0;
-            /* 配合 fixed header 增加頂部 padding */
             padding-top: calc(env(safe-area-inset-top) + 60px);
             padding-bottom: env(safe-area-inset-bottom);
             padding-left: env(safe-area-inset-left);
@@ -222,7 +221,7 @@
                 <button onclick="toggleAllFavs(false)" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">取消</button>
             </div>
         </div>
-        <div id="fav-list" style="margin-bottom: 15px; max-height: 40vh; overflow-y: auto;"></div>
+        <div id="fav-list" style="margin-bottom: 15px; max-height: 50vh; overflow-y: auto;"></div>
         <button class="btn" style="background-color: #2e8b57; margin-bottom: 15px;" onclick="startFavBrowse()">瀏覽單字卡</button>
         <div style="display: flex; justify-content: space-between;">
             <button class="btn btn-half" onclick="document.getElementById('favorites-modal').close()">取消</button>
@@ -768,13 +767,27 @@ function startPractice() {
     mistakes.clear();
     score = 0;
     
-    let lastCardId = -1;
+    // 改良抽題邏輯：將 pool 洗牌後依序抽出，用完再重新洗牌，確保盡量不重複
+    let cardSequence = [];
+    let tempPool = [...pool];
+    shuffleArray(tempPool);
+
+    while (cardSequence.length < reqQCount) {
+        if (tempPool.length === 0) {
+            tempPool = [...pool];
+            shuffleArray(tempPool);
+            // 避免新一輪的第一題跟上一輪的最後一題重複
+            if (cardSequence.length > 0 && tempPool.length > 1 && tempPool[0].id === cardSequence[cardSequence.length - 1].id) {
+                let temp = tempPool[0];
+                tempPool[0] = tempPool[1];
+                tempPool[1] = temp;
+            }
+        }
+        cardSequence.push(tempPool.pop());
+    }
+
     for (let i = 0; i < reqQCount; i++) {
-        let validCards = pool.filter(c => c.id !== lastCardId);
-        if (validCards.length === 0) validCards = pool;
-        
-        let card = validCards[Math.floor(Math.random() * validCards.length)];
-        lastCardId = card.id;
+        let card = cardSequence[i];
 
         let cardValidTypes = types.filter(t => {
             if ((t === 'pinyin' || t === 'manual') && !card.kanji) return false;
