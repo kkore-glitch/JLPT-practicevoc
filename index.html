@@ -251,7 +251,12 @@
             <button onclick="openEditForm()" style="background:var(--text-color); color:#000; border:none; padding:4px 8px; border-radius:4px;">新增字卡</button>
         </div>
         <textarea id="csv-io" class="textarea-csv" placeholder="您可以在此貼上CSV格式資料以大量匯入，或複製以備份。"></textarea>
-        <button class="btn" style="padding: 8px; font-size: 0.9rem;" onclick="importCSV()">匯入 CSV</button>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <button class="btn" style="padding: 8px; font-size: 0.9rem; margin-bottom: 0;" onclick="importCSV()">匯入 CSV</button>
+            <button class="btn" style="padding: 8px; font-size: 0.9rem; margin-bottom: 0; background-color: #8b0000;" onclick="resetToDefault()">載入內建題庫</button>
+        </div>
+
         <div id="all-cards-list" style="margin-top:10px; max-height: 40vh; overflow-y: auto;"></div>
         <button class="btn" style="margin-top:10px;" onclick="document.getElementById('card-manager-modal').close()">關閉</button>
     </dialog>
@@ -643,6 +648,15 @@ function importCSV() {
     }
 }
 
+function resetToDefault() {
+    if(confirm('這將會清除您在此網頁手動新增或修改的所有字卡，並強制重新載入程式碼內的原始題庫，確定嗎？')) {
+        localStorage.removeItem('jp_custom_db');
+        parseCSV(defaultCSV, true);
+        alert('已重新載入內建題庫');
+        openCardManager();
+    }
+}
+
 function openEditForm(id = null) {
     document.getElementById('card-manager-modal').close();
     const form = document.getElementById('edit-form-modal');
@@ -816,7 +830,6 @@ function startPractice() {
     mistakes.clear();
     score = 0;
     
-    // 改良抽題邏輯：將 pool 洗牌後依序抽出，用完再重新洗牌，確保盡量不重複
     let cardSequence = [];
     let tempPool = [...pool];
     shuffleArray(tempPool);
@@ -825,7 +838,6 @@ function startPractice() {
         if (tempPool.length === 0) {
             tempPool = [...pool];
             shuffleArray(tempPool);
-            // 避免新一輪的第一題跟上一輪的最後一題重複
             if (cardSequence.length > 0 && tempPool.length > 1 && tempPool[0].id === cardSequence[cardSequence.length - 1].id) {
                 let temp = tempPool[0];
                 tempPool[0] = tempPool[1];
