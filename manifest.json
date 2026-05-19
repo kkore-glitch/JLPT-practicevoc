@@ -1,5 +1,5 @@
 {
-  "name": "日檢自修室（單字卡）",
+  "name": "日檢自修室",
   "short_name": "K日単",
   "description": "JLPT vocabulary practice cards with level, type, category, and part-of-speech filters.",
   "start_url": "./index.html",
