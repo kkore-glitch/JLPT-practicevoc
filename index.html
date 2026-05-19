@@ -104,6 +104,9 @@
             border: 1px solid rgba(70, 130, 180, 0.85); border-radius: 8px; padding: 8px 10px;
             text-align: center; font-weight: 700;
         }
+        .source-status {
+            margin-top: 8px; color: #9ab7c5; font-size: 0.78rem; line-height: 1.45;
+        }
         
         .btn {
             display: block; width: 100%; padding: 12px; background: var(--btn-bg); color: var(--text-color);
@@ -190,6 +193,7 @@
             </div>
             <input type="hidden" id="pool-size" value="105">
             <span id="pool-label" class="hidden">MAX</span>
+            <div id="source-status" class="source-status">題庫載入中...</div>
         </div>
 
         <div class="section-box">
@@ -285,7 +289,7 @@
         
         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
             <button class="btn" style="padding: 8px; font-size: 0.9rem; margin-bottom: 0;" onclick="importCSV()">匯入 CSV</button>
-            <button class="btn" style="padding: 8px; font-size: 0.9rem; margin-bottom: 0; background-color: #8b0000;" onclick="resetToDefault()">載入 vocab.csv</button>
+            <button class="btn" style="padding: 8px; font-size: 0.9rem; margin-bottom: 0; background-color: #8b0000;" onclick="resetToDefault()">載入雲端題庫</button>
         </div>
 
         <div id="all-cards-list" style="margin-top:10px; max-height: 40vh; overflow-y: auto;"></div>
@@ -313,8 +317,11 @@
 
 <script>
 // --- Data & State ---
-const DEFAULT_CSV_PATH = 'vocab.csv';
+const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
+const LOCAL_CSV_PATH = 'vocab.csv';
 let defaultCSV = '';
+let defaultCSVSource = '';
+let defaultCSVLoadedAt = null;
 
 let db = [];
 let favIds = new Set(JSON.parse(localStorage.getItem('jp_favs') || '[]'));
@@ -339,26 +346,52 @@ async function init() {
     let customData = localStorage.getItem('jp_custom_db');
     if (customData) {
         db = JSON.parse(customData).map(normalizeCard);
+        defaultCSVSource = '瀏覽器已儲存題庫';
+        defaultCSVLoadedAt = new Date();
         saveDB();
     } else {
         parseCSV(defaultCSV, true);
     }
+    updateSourceStatus();
 }
 
 async function loadDefaultCSV() {
     if (defaultCSV) return defaultCSV;
 
-    try {
-        const response = await fetch(DEFAULT_CSV_PATH, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        defaultCSV = await response.text();
-        defaultPartOfSpeechLookup = null;
-        return defaultCSV;
-    } catch (error) {
-        console.error('Failed to load vocab.csv', error);
-        alert('無法讀取 vocab.csv，請確認 vocab.csv 與 index.html 放在同一個 GitHub 專案資料夾。');
-        return '';
+    const sources = [
+        { name: 'Google Sheet 雲端題庫', url: CLOUD_CSV_PATH },
+        { name: '本機備援 vocab.csv', url: LOCAL_CSV_PATH }
+    ];
+
+    for (const source of sources) {
+        try {
+            const response = await fetch(source.url, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            defaultCSV = await response.text();
+            defaultCSVSource = source.name;
+            defaultCSVLoadedAt = new Date();
+            defaultPartOfSpeechLookup = null;
+            return defaultCSV;
+        } catch (error) {
+            console.warn(`Failed to load ${source.name}`, error);
+        }
     }
+
+    alert('無法讀取雲端題庫或本機 vocab.csv，請確認 Google Sheet 已發布成 CSV，或 vocab.csv 與 index.html 放在同一個 GitHub 專案資料夾。');
+    return '';
+}
+
+function updateSourceStatus() {
+    const status = document.getElementById('source-status');
+    if (!status) return;
+
+    const time = defaultCSVLoadedAt ? defaultCSVLoadedAt.toLocaleString('zh-TW', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    }) : '尚未載入';
+    status.innerText = `題庫來源：${defaultCSVSource || '未知'}｜${db.length} 筆｜更新時間：${time}`;
 }
 
 function normalizePartOfSpeech(value) {
@@ -456,6 +489,7 @@ function parseCSV(csvText, replace = false) {
     }
     db = newDb;
     saveDB();
+    updateSourceStatus();
 }
 
 function saveDB() {
@@ -502,11 +536,12 @@ function importCSV() {
 }
 
 async function resetToDefault() {
-    if(confirm('這將會清除您在此網頁手動新增或修改的所有字卡，並強制重新載入 vocab.csv，確定嗎？')) {
+    if(confirm('這將會清除您在此網頁手動新增或修改的所有字卡，並強制重新載入雲端題庫，確定嗎？')) {
         localStorage.removeItem('jp_custom_db');
+        defaultCSV = '';
         await loadDefaultCSV();
         parseCSV(defaultCSV, true);
-        alert('已重新載入內建題庫');
+        alert(`已重新載入題庫：${defaultCSVSource || '未知來源'}，共 ${db.length} 筆。`);
         openCardManager();
     }
 }
