@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">K日単 App Icon</title>
+  <desc id="desc">A dark modern app icon with the text K日単 in cyan and warm orange.</desc>
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="38%" r="72%">
+      <stop offset="0%" stop-color="#183348"/>
+      <stop offset="54%" stop-color="#0d1822"/>
+      <stop offset="100%" stop-color="#07090c"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="18%" y1="8%" x2="82%" y2="95%">
+      <stop offset="0%" stop-color="#8ee7ff"/>
+      <stop offset="48%" stop-color="#ffb35f"/>
+      <stop offset="100%" stop-color="#2b79a8"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="18%" y1="16%" x2="86%" y2="88%">
+      <stop offset="0%" stop-color="#163148"/>
+      <stop offset="100%" stop-color="#101018"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="26" stdDeviation="28" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+    <filter id="orangeGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="18" flood-color="#ff944d" flood-opacity="0.55"/>
+    </filter>
+    <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#7edfff" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bgGlow)"/>
+  <circle cx="512" cy="512" r="388" fill="none" stroke="url(#ring)" stroke-width="22" opacity="0.88"/>
+  <circle cx="512" cy="512" r="316" fill="none" stroke="#87ceeb" stroke-width="2" opacity="0.18"/>
+  <rect x="206" y="218" width="612" height="588" rx="112" fill="url(#tile)" stroke="rgba(255,255,255,0.16)" stroke-width="4" filter="url(#softShadow)"/>
+  <path d="M254 272 C364 224 503 214 640 250 C722 272 780 318 808 374" fill="none" stroke="#ffad64" stroke-width="20" stroke-linecap="round" opacity="0.45"/>
+  <text x="274" y="618"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', 'Yu Gothic', 'Hiragino Sans', sans-serif"
+        font-size="346" font-weight="900" letter-spacing="-12"
+        fill="#d9f7ff" filter="url(#cyanGlow)">K</text>
+  <text x="512" y="500"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', 'Yu Gothic', 'Hiragino Sans', sans-serif"
+        font-size="186" font-weight="850"
+        fill="#ffd3a2" filter="url(#orangeGlow)">日</text>
+  <text x="512" y="700"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', 'Yu Gothic', 'Hiragino Sans', sans-serif"
+        font-size="186" font-weight="850"
+        fill="#ffd3a2" filter="url(#orangeGlow)">単</text>
+  <path d="M298 756 H728" stroke="#87ceeb" stroke-width="12" stroke-linecap="round" opacity="0.72"/>
+</svg>
