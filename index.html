@@ -244,11 +244,6 @@
                 <div id="grammar-source-status" class="source-status">文法題庫載入中...</div>
             </div>
 
-            <div class="section-box">
-                <div class="section-title">選擇文法分類</div>
-                <div class="checkbox-group" id="grammar-category-checks"></div>
-            </div>
-
             <button class="btn" style="background-color: #2e8b57; font-weight:bold;" onclick="startGrammarPractice()">開始文法練習</button>
         </div>
     </main>
@@ -399,7 +394,6 @@ async function init() {
     }
     updateSourceStatus();
     updateGrammarSourceStatus();
-    renderGrammarCategoryChecks();
 }
 
 async function loadDefaultCSV() {
@@ -444,14 +438,14 @@ function updateSourceStatus() {
 async function loadGrammarCSVs() {
     const sources = [
         {
-            name: 'Google Sheet 雲端文法題庫',
-            pointsUrl: CLOUD_GRAMMAR_POINTS_PATH,
-            examplesUrl: CLOUD_GRAMMAR_EXAMPLES_PATH
-        },
-        {
             name: '本機備援文法 CSV',
             pointsUrl: LOCAL_GRAMMAR_POINTS_PATH,
             examplesUrl: LOCAL_GRAMMAR_EXAMPLES_PATH
+        },
+        {
+            name: 'Google Sheet 雲端文法題庫',
+            pointsUrl: CLOUD_GRAMMAR_POINTS_PATH,
+            examplesUrl: CLOUD_GRAMMAR_EXAMPLES_PATH
         }
     ];
 
@@ -534,16 +528,6 @@ function updateGrammarSourceStatus() {
         minute: '2-digit'
     }) : '尚未載入';
     status.innerText = `文法來源：${grammarCSVSource || '未知'}｜${grammarPoints.length} 個文法｜${grammarExamples.length} 句｜更新時間：${time}`;
-}
-
-function renderGrammarCategoryChecks() {
-    const container = document.getElementById('grammar-category-checks');
-    if (!container) return;
-
-    const categories = [...new Set(grammarPoints.map(point => point.category).filter(Boolean))];
-    container.innerHTML = categories.map(category => `
-        <label class="checkbox-item"><input type="checkbox" value="${escapeHtml(category)}" checked> ${escapeHtml(category)}</label>
-    `).join('');
 }
 
 function setPracticeMode(mode) {
@@ -957,21 +941,20 @@ function startPractice() {
 function startGrammarPractice() {
     activePracticeMode = 'grammar';
     const types = getCheckedValues('#grammar-type-checks');
-    const categories = getCheckedValues('#grammar-category-checks');
     const reqQCount = parseInt(document.getElementById('grammar-question-count').value);
 
-    if (types.length === 0 || categories.length === 0 || isNaN(reqQCount)) {
-        alert("文法題型、分類至少需勾選一項，且題目數量必須為數字。"); return;
+    if (types.length === 0 || isNaN(reqQCount)) {
+        alert("文法題型至少需勾選一項，且題目數量必須為數字。"); return;
     }
     if (grammarPoints.length === 0 || grammarExamples.length === 0) {
         alert("文法題庫尚未載入成功，請稍後重試或確認 Google Sheet 已發布成 CSV。"); return;
     }
 
     const pointMap = getGrammarPointMap();
-    const eligiblePoints = grammarPoints.filter(point => categories.includes(point.category));
+    const eligiblePoints = grammarPoints;
     const eligibleExamples = grammarExamples.filter(example => {
         const point = pointMap.get(example.grammarId);
-        return point && categories.includes(point.category);
+        return Boolean(point);
     });
 
     if (eligiblePoints.length === 0 || (types.includes('cloze') && eligibleExamples.length === 0)) {
@@ -1317,7 +1300,7 @@ function showGrammarAnswerDetails(selectedPoint = null) {
 
 function startTimer() {
     clearInterval(timerInt);
-    timeLeft = 30;
+    timeLeft = activePracticeMode === 'grammar' ? 60 : 30;
     document.getElementById('timer-display').innerText = timeLeft;
     timerInt = setInterval(() => {
         timeLeft--;
