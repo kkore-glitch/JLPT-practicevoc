@@ -817,6 +817,58 @@ function getDistractors(correctCard, pool, count, logicType) {
     return distractors.slice(0, count);
 }
 
+const DAKUTEN_GROUPS = [
+    ['か', 'が'], ['き', 'ぎ'], ['く', 'ぐ'], ['け', 'げ'], ['こ', 'ご'],
+    ['さ', 'ざ'], ['し', 'じ'], ['す', 'ず'], ['せ', 'ぜ'], ['そ', 'ぞ'],
+    ['た', 'だ'], ['ち', 'ぢ'], ['つ', 'づ'], ['て', 'で'], ['と', 'ど'],
+    ['は', 'ば', 'ぱ'], ['ひ', 'び', 'ぴ'], ['ふ', 'ぶ', 'ぷ'], ['へ', 'べ', 'ぺ'], ['ほ', 'ぼ', 'ぽ']
+];
+
+function getDakutenVariants(kana, limit = 3) {
+    const chars = [...kana];
+    const optionsByChar = chars.map(char => {
+        const group = DAKUTEN_GROUPS.find(g => g.includes(char));
+        return group ? group : [char];
+    });
+    const variantSpace = optionsByChar.reduce((total, options) => total * options.length, 1);
+    if (variantSpace === 1 || variantSpace > 128) return [];
+
+    const variants = [];
+    function build(index, current) {
+        if (index === optionsByChar.length) {
+            const variant = current.join('');
+            if (variant !== kana) {
+                const changedCount = [...variant].filter((char, i) => char !== chars[i]).length;
+                variants.push({ value: variant, changedCount });
+            }
+            return;
+        }
+        optionsByChar[index].forEach(char => {
+            current.push(char);
+            build(index + 1, current);
+            current.pop();
+        });
+    }
+
+    build(0, []);
+    const unique = [];
+    variants.forEach(variant => {
+        if (!unique.some(item => item.value === variant.value)) unique.push(variant);
+    });
+
+    const singleChange = unique.filter(item => item.changedCount === 1).map(item => item.value);
+    const multiChange = unique.filter(item => item.changedCount > 1).map(item => item.value);
+    shuffleArray(singleChange);
+    shuffleArray(multiChange);
+
+    if (singleChange.length > 0 && multiChange.length > 0 && limit > 1) {
+        const singleCount = Math.min(singleChange.length, limit - 1);
+        return [...singleChange.slice(0, singleCount), ...multiChange.slice(0, limit - singleCount)];
+    }
+
+    return [...singleChange, ...multiChange].slice(0, limit);
+}
+
 function renderQuestion() {
     if (currentQIndex >= practiceQueue.length) {
         endPractice();
@@ -864,7 +916,9 @@ function renderQuestion() {
     if (type === 'pinyin') {
         questionText = `<div style="font-size: 2rem;">${card.kanji}</div>`;
         correctStr = card.kana;
-        let dist = getDistractors(card, qData.pool, 3, 'pinyin').map(c => c.kana);
+        let dakutenDist = getDakutenVariants(card.kana, 3);
+        let normalDist = getDistractors(card, qData.pool, 3, 'pinyin').map(c => c.kana);
+        let dist = [...new Set([...dakutenDist, ...normalDist].filter(v => v !== correctStr))].slice(0, 3);
         optionsList = [correctStr, ...dist];
     } else if (type === 'zh_jp') {
         questionText = `<div style="font-size: 2rem;">${card.zh}</div>`;
