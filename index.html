@@ -1282,10 +1282,11 @@ function showGrammarAnswerDetails(selectedPoint = null) {
         <div style="font-size: 1.35rem; color: #fff;">${escapeHtml(qData.point.pattern)}</div>
         <div style="font-size: 1rem; color: #ffd8aa; margin-top: 6px;">${escapeHtml(qData.point.zh)}</div>
         <div style="font-size: 0.85rem; color: #9ab7c5; margin-top: 6px;">${escapeHtml(qData.point.connection)}</div>
+        <div style="font-size: 0.9rem; color: #b8d8e8; margin-top: 8px; line-height: 1.45;">${escapeHtml(qData.point.note)}</div>
     `;
 
     if (selectedPoint && selectedPoint.id !== qData.point.id) {
-        displayHtml += `<div style="font-size: 0.9rem; color: #f5a3a3; margin-top: 8px;">你選的是：${escapeHtml(selectedPoint.pattern)}｜${escapeHtml(selectedPoint.zh)}</div>`;
+        displayHtml += `<div style="font-size: 0.9rem; color: #f5a3a3; margin-top: 8px; line-height: 1.45;">你選的是：${escapeHtml(selectedPoint.pattern)}｜${escapeHtml(selectedPoint.zh)}<br>${escapeHtml(selectedPoint.note)}</div>`;
     }
     if (qData.example) {
         displayHtml += `
