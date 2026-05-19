@@ -167,55 +167,90 @@
     <!-- Main Menu -->
     <main id="main-menu" class="fade">
         <div class="section-box">
-            <div class="section-title">選擇級別</div>
-            <div class="checkbox-group" id="level-checks">
-                <label class="checkbox-item"><input type="checkbox" value="收藏" checked> 收藏</label>
-                <label class="checkbox-item"><input type="checkbox" value="N3" checked> N3</label>
-                <label class="checkbox-item"><input type="checkbox" value="N2" checked> N2</label>
-                <label class="checkbox-item"><input type="checkbox" value="N1" checked> N1</label>
+            <div class="section-title">練習模式</div>
+            <div class="checkbox-group">
+                <label class="checkbox-item"><input type="radio" name="practice-mode" value="vocab" checked onchange="setPracticeMode('vocab')"> 單字</label>
+                <label class="checkbox-item"><input type="radio" name="practice-mode" value="grammar" onchange="setPracticeMode('grammar')"> 文法</label>
             </div>
         </div>
 
-        <div class="section-box">
-            <div class="section-title">選擇題型</div>
-            <div class="checkbox-group" id="type-checks">
-                <label class="checkbox-item"><input type="checkbox" value="pinyin" checked> 拼音</label>
-                <label class="checkbox-item"><input type="checkbox" value="zh_jp" checked> 中翻日</label>
-                <label class="checkbox-item"><input type="checkbox" value="jp_zh" checked> 日翻中</label>
-                <label class="checkbox-item"><input type="checkbox" value="manual" checked> 手輸</label>
+        <div id="vocab-menu">
+            <div class="section-box">
+                <div class="section-title">選擇級別</div>
+                <div class="checkbox-group" id="level-checks">
+                    <label class="checkbox-item"><input type="checkbox" value="收藏" checked> 收藏</label>
+                    <label class="checkbox-item"><input type="checkbox" value="N3" checked> N3</label>
+                    <label class="checkbox-item"><input type="checkbox" value="N2" checked> N2</label>
+                    <label class="checkbox-item"><input type="checkbox" value="N1" checked> N1</label>
+                </div>
             </div>
+
+            <div class="section-box">
+                <div class="section-title">選擇題型</div>
+                <div class="checkbox-group" id="type-checks">
+                    <label class="checkbox-item"><input type="checkbox" value="pinyin" checked> 拼音</label>
+                    <label class="checkbox-item"><input type="checkbox" value="zh_jp" checked> 中翻日</label>
+                    <label class="checkbox-item"><input type="checkbox" value="jp_zh" checked> 日翻中</label>
+                    <label class="checkbox-item"><input type="checkbox" value="manual" checked> 手輸</label>
+                </div>
+            </div>
+
+            <div class="section-box">
+                <div class="input-row">
+                    <span>題目數量</span>
+                    <input type="number" id="question-count" value="20" min="1" max="999">
+                </div>
+                <input type="hidden" id="pool-size" value="105">
+                <span id="pool-label" class="hidden">MAX</span>
+                <div id="source-status" class="source-status">題庫載入中...</div>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">選擇練習類別</div>
+                <div class="checkbox-group" id="category-checks">
+                    <label class="checkbox-item"><input type="checkbox" value="單字" checked> 單字</label>
+                    <label class="checkbox-item"><input type="checkbox" value="語彙" checked> 語彙</label>
+                </div>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">選擇單字詞性</div>
+                <div class="checkbox-group" id="pos-checks">
+                    <label class="checkbox-item"><input type="checkbox" value="名詞" checked> 名詞</label>
+                    <label class="checkbox-item"><input type="checkbox" value="動詞" checked> 動詞</label>
+                    <label class="checkbox-item"><input type="checkbox" value="形容詞" checked> 形容詞</label>
+                    <label class="checkbox-item"><input type="checkbox" value="副詞" checked> 副詞</label>
+                </div>
+            </div>
+
+            <button class="btn" onclick="openCardManager()">字卡清單 (新增/編輯)</button>
+            <button class="btn" style="background-color: #2e8b57; font-weight:bold;" onclick="startPractice()">開始練習</button>
         </div>
 
-        <div class="section-box">
-            <div class="input-row">
-                <span>題目數量</span>
-                <input type="number" id="question-count" value="20" min="1" max="999">
+        <div id="grammar-menu" class="hidden">
+            <div class="section-box">
+                <div class="section-title">選擇文法題型</div>
+                <div class="checkbox-group" id="grammar-type-checks">
+                    <label class="checkbox-item"><input type="checkbox" value="cloze" checked> 例句填空</label>
+                    <label class="checkbox-item"><input type="checkbox" value="meaning" checked> 中文選文法</label>
+                </div>
             </div>
-            <input type="hidden" id="pool-size" value="105">
-            <span id="pool-label" class="hidden">MAX</span>
-            <div id="source-status" class="source-status">題庫載入中...</div>
-        </div>
 
-        <div class="section-box">
-            <div class="section-title">選擇練習類別</div>
-            <div class="checkbox-group" id="category-checks">
-                <label class="checkbox-item"><input type="checkbox" value="單字" checked> 單字</label>
-                <label class="checkbox-item"><input type="checkbox" value="語彙" checked> 語彙</label>
+            <div class="section-box">
+                <div class="input-row">
+                    <span>題目數量</span>
+                    <input type="number" id="grammar-question-count" value="20" min="1" max="999">
+                </div>
+                <div id="grammar-source-status" class="source-status">文法題庫載入中...</div>
             </div>
-        </div>
 
-        <div class="section-box">
-            <div class="section-title">選擇單字詞性</div>
-            <div class="checkbox-group" id="pos-checks">
-                <label class="checkbox-item"><input type="checkbox" value="名詞" checked> 名詞</label>
-                <label class="checkbox-item"><input type="checkbox" value="動詞" checked> 動詞</label>
-                <label class="checkbox-item"><input type="checkbox" value="形容詞" checked> 形容詞</label>
-                <label class="checkbox-item"><input type="checkbox" value="副詞" checked> 副詞</label>
+            <div class="section-box">
+                <div class="section-title">選擇文法分類</div>
+                <div class="checkbox-group" id="grammar-category-checks"></div>
             </div>
-        </div>
 
-        <button class="btn" onclick="openCardManager()">字卡清單 (新增/編輯)</button>
-        <button class="btn" style="background-color: #2e8b57; font-weight:bold;" onclick="startPractice()">開始練習</button>
+            <button class="btn" style="background-color: #2e8b57; font-weight:bold;" onclick="startGrammarPractice()">開始文法練習</button>
+        </div>
     </main>
 
     <!-- Practice Area -->
@@ -241,7 +276,7 @@
         <div id="score-display" style="text-align: center; font-size: 1.5rem; margin-bottom: 20px;"></div>
         
         <div class="section-box">
-            <div class="section-title">重點錯誤/不熟題目 (勾選加入收藏)</div>
+            <div class="section-title" id="result-list-title">重點錯誤/不熟題目 (勾選加入收藏)</div>
             <div id="result-list"></div>
         </div>
         <button class="btn" onclick="saveResultFavoritesAndReturn()">完成並返回主頁</button>
@@ -319,11 +354,20 @@
 // --- Data & State ---
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
+const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
+const CLOUD_GRAMMAR_EXAMPLES_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSyMXN6JokioaowsR40FxKAze7hDhlHFhnTPWhqbXRMuFSMBfmrTtg8JGZQb4Nkn4QXoJ4ebFBltRLv/pub?gid=0&single=true&output=csv';
+const LOCAL_GRAMMAR_POINTS_PATH = 'grammar_points.csv';
+const LOCAL_GRAMMAR_EXAMPLES_PATH = 'grammar_examples.csv';
 let defaultCSV = '';
 let defaultCSVSource = '';
 let defaultCSVLoadedAt = null;
+let grammarCSVSource = '';
+let grammarCSVLoadedAt = null;
 
 let db = [];
+let grammarPoints = [];
+let grammarExamples = [];
+let activePracticeMode = 'vocab';
 let favIds = new Set(JSON.parse(localStorage.getItem('jp_favs') || '[]'));
 let practiceQueue = [];
 let currentQIndex = 0;
@@ -342,6 +386,7 @@ let defaultPartOfSpeechLookup = null;
 
 async function init() {
     await loadDefaultCSV();
+    await loadGrammarCSVs();
 
     let customData = localStorage.getItem('jp_custom_db');
     if (customData) {
@@ -353,6 +398,8 @@ async function init() {
         parseCSV(defaultCSV, true);
     }
     updateSourceStatus();
+    updateGrammarSourceStatus();
+    renderGrammarCategoryChecks();
 }
 
 async function loadDefaultCSV() {
@@ -392,6 +439,117 @@ function updateSourceStatus() {
         minute: '2-digit'
     }) : '尚未載入';
     status.innerText = `題庫來源：${defaultCSVSource || '未知'}｜${db.length} 筆｜更新時間：${time}`;
+}
+
+async function loadGrammarCSVs() {
+    const sources = [
+        {
+            name: 'Google Sheet 雲端文法題庫',
+            pointsUrl: CLOUD_GRAMMAR_POINTS_PATH,
+            examplesUrl: CLOUD_GRAMMAR_EXAMPLES_PATH
+        },
+        {
+            name: '本機備援文法 CSV',
+            pointsUrl: LOCAL_GRAMMAR_POINTS_PATH,
+            examplesUrl: LOCAL_GRAMMAR_EXAMPLES_PATH
+        }
+    ];
+
+    for (const source of sources) {
+        try {
+            const [pointsResponse, examplesResponse] = await Promise.all([
+                fetch(source.pointsUrl, { cache: 'no-store' }),
+                fetch(source.examplesUrl, { cache: 'no-store' })
+            ]);
+            if (!pointsResponse.ok || !examplesResponse.ok) {
+                throw new Error(`HTTP ${pointsResponse.status}/${examplesResponse.status}`);
+            }
+            grammarPoints = parseGrammarPoints(await pointsResponse.text());
+            grammarExamples = parseGrammarExamples(await examplesResponse.text());
+            if (grammarPoints.length === 0 || grammarExamples.length === 0) {
+                throw new Error('empty grammar data');
+            }
+            grammarCSVSource = source.name;
+            grammarCSVLoadedAt = new Date();
+            return;
+        } catch (error) {
+            console.warn(`Failed to load ${source.name}`, error);
+        }
+    }
+
+    grammarPoints = [];
+    grammarExamples = [];
+    grammarCSVSource = '文法題庫讀取失敗';
+    grammarCSVLoadedAt = null;
+}
+
+function parseGrammarPoints(csvText) {
+    const lines = csvText.trim().split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) return [];
+    const headers = parseCSVLine(lines[0]);
+    const indexOf = name => headers.findIndex(header => header === name);
+
+    return lines.slice(1).map(line => {
+        const parts = parseCSVLine(line);
+        return {
+            id: parts[indexOf('id')] || '',
+            level: parts[indexOf('級別')] || '',
+            category: parts[indexOf('分類')] || '',
+            pattern: parts[indexOf('文法')] || '',
+            zh: parts[indexOf('中文')] || '',
+            connection: parts[indexOf('接續')] || '',
+            note: parts[indexOf('重點')] || '',
+            confusions: (parts[indexOf('混淆文法')] || '').split('|').map(value => value.trim()).filter(Boolean)
+        };
+    }).filter(point => point.id && point.pattern && point.zh);
+}
+
+function parseGrammarExamples(csvText) {
+    const lines = csvText.trim().split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) return [];
+    const headers = parseCSVLine(lines[0]);
+    const indexOf = name => headers.findIndex(header => header === name);
+
+    return lines.slice(1).map((line, index) => {
+        const parts = parseCSVLine(line);
+        return {
+            id: `GE${String(index + 1).padStart(4, '0')}`,
+            grammarId: parts[indexOf('grammar_id')] || '',
+            sentence: parts[indexOf('例句')] || '',
+            blankQuestion: parts[indexOf('空格題目')] || '',
+            answer: parts[indexOf('正解')] || '',
+            zh: parts[indexOf('中文翻譯')] || ''
+        };
+    }).filter(example => example.grammarId && example.sentence && example.answer);
+}
+
+function updateGrammarSourceStatus() {
+    const status = document.getElementById('grammar-source-status');
+    if (!status) return;
+
+    const time = grammarCSVLoadedAt ? grammarCSVLoadedAt.toLocaleString('zh-TW', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    }) : '尚未載入';
+    status.innerText = `文法來源：${grammarCSVSource || '未知'}｜${grammarPoints.length} 個文法｜${grammarExamples.length} 句｜更新時間：${time}`;
+}
+
+function renderGrammarCategoryChecks() {
+    const container = document.getElementById('grammar-category-checks');
+    if (!container) return;
+
+    const categories = [...new Set(grammarPoints.map(point => point.category).filter(Boolean))];
+    container.innerHTML = categories.map(category => `
+        <label class="checkbox-item"><input type="checkbox" value="${escapeHtml(category)}" checked> ${escapeHtml(category)}</label>
+    `).join('');
+}
+
+function setPracticeMode(mode) {
+    activePracticeMode = mode;
+    document.getElementById('vocab-menu').classList.toggle('hidden', mode !== 'vocab');
+    document.getElementById('grammar-menu').classList.toggle('hidden', mode !== 'grammar');
 }
 
 function normalizePartOfSpeech(value) {
@@ -705,6 +863,7 @@ function getCheckedValues(selector) {
 }
 
 function startPractice() {
+    activePracticeMode = 'vocab';
     const levels = getCheckedValues('#level-checks');
     const types = getCheckedValues('#type-checks');
     const categories = getCheckedValues('#category-checks');
@@ -793,6 +952,73 @@ function startPractice() {
     
     currentQIndex = 0;
     renderQuestion();
+}
+
+function startGrammarPractice() {
+    activePracticeMode = 'grammar';
+    const types = getCheckedValues('#grammar-type-checks');
+    const categories = getCheckedValues('#grammar-category-checks');
+    const reqQCount = parseInt(document.getElementById('grammar-question-count').value);
+
+    if (types.length === 0 || categories.length === 0 || isNaN(reqQCount)) {
+        alert("文法題型、分類至少需勾選一項，且題目數量必須為數字。"); return;
+    }
+    if (grammarPoints.length === 0 || grammarExamples.length === 0) {
+        alert("文法題庫尚未載入成功，請稍後重試或確認 Google Sheet 已發布成 CSV。"); return;
+    }
+
+    const pointMap = getGrammarPointMap();
+    const eligiblePoints = grammarPoints.filter(point => categories.includes(point.category));
+    const eligibleExamples = grammarExamples.filter(example => {
+        const point = pointMap.get(example.grammarId);
+        return point && categories.includes(point.category);
+    });
+
+    if (eligiblePoints.length === 0 || (types.includes('cloze') && eligibleExamples.length === 0)) {
+        alert("所選條件內沒有可用的文法題。"); return;
+    }
+
+    practiceQueue = [];
+    mistakes.clear();
+    score = 0;
+
+    let examplesPool = [...eligibleExamples];
+    let pointsPool = [...eligiblePoints];
+    shuffleArray(examplesPool);
+    shuffleArray(pointsPool);
+
+    for (let i = 0; i < reqQCount; i++) {
+        let type = types[Math.floor(Math.random() * types.length)];
+        if (type === 'cloze' && examplesPool.length === 0) {
+            examplesPool = [...eligibleExamples];
+            shuffleArray(examplesPool);
+        }
+        if (type === 'meaning' && pointsPool.length === 0) {
+            pointsPool = [...eligiblePoints];
+            shuffleArray(pointsPool);
+        }
+
+        if (type === 'cloze' && eligibleExamples.length > 0) {
+            const example = examplesPool.pop();
+            const point = pointMap.get(example.grammarId);
+            practiceQueue.push(buildGrammarQuestion('cloze', point, example, eligiblePoints));
+        } else {
+            const point = pointsPool.pop() || eligiblePoints[Math.floor(Math.random() * eligiblePoints.length)];
+            const examples = grammarExamples.filter(example => example.grammarId === point.id);
+            const example = examples[Math.floor(Math.random() * examples.length)] || null;
+            practiceQueue.push(buildGrammarQuestion('meaning', point, example, eligiblePoints));
+        }
+    }
+
+    document.getElementById('btn-open-fav').classList.add('hidden');
+    document.getElementById('btn-unfamiliar').classList.add('hidden');
+
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('practice-area').classList.remove('hidden');
+    document.getElementById('practice-area').classList.add('fade');
+
+    currentQIndex = 0;
+    renderGrammarQuestion();
 }
 
 function getDistractors(correctCard, pool, count, logicType) {
@@ -958,6 +1184,137 @@ function renderQuestion() {
     startTimer();
 }
 
+function getGrammarPointMap() {
+    return new Map(grammarPoints.map(point => [point.id, point]));
+}
+
+function buildGrammarQuestion(type, point, example, pool) {
+    const distractors = getGrammarDistractors(point, pool, 3);
+    const options = [
+        { label: type === 'cloze' && example ? example.answer : point.pattern, point, isCorrect: true },
+        ...distractors.map(distractor => ({
+            label: type === 'cloze' ? cleanGrammarPattern(distractor.pattern) : distractor.pattern,
+            point: distractor,
+            isCorrect: false
+        }))
+    ];
+    shuffleArray(options);
+    return { mode: 'grammar', type, point, example, options };
+}
+
+function getGrammarDistractors(correctPoint, pool, count) {
+    const selected = [];
+    const addPoint = point => {
+        if (!point || point.id === correctPoint.id || selected.some(item => item.id === point.id)) return;
+        selected.push(point);
+    };
+
+    correctPoint.confusions.forEach(pattern => {
+        addPoint(grammarPoints.find(point => point.pattern === pattern));
+    });
+
+    const sameCategory = pool.filter(point => point.category === correctPoint.category);
+    shuffleArray(sameCategory);
+    sameCategory.forEach(addPoint);
+
+    const fallback = grammarPoints.filter(point => pool.some(poolPoint => poolPoint.id === point.id));
+    shuffleArray(fallback);
+    fallback.forEach(addPoint);
+
+    return selected.slice(0, count);
+}
+
+function cleanGrammarPattern(pattern) {
+    return String(pattern || '').replace(/^〜/, '');
+}
+
+function renderGrammarQuestion() {
+    if (currentQIndex >= practiceQueue.length) {
+        endPractice();
+        return;
+    }
+
+    const qData = practiceQueue[currentQIndex];
+    currentQuestionData = qData;
+
+    document.getElementById('options-area').innerHTML = '';
+    document.getElementById('manual-area').classList.add('hidden');
+    document.getElementById('options-area').classList.remove('hidden');
+    document.getElementById('btn-next').classList.add('hidden');
+    document.getElementById('progress-bar').innerText = `剩餘 ${practiceQueue.length - currentQIndex} 題`;
+
+    const pArea = document.getElementById('practice-area');
+    pArea.classList.remove('fade');
+    void pArea.offsetWidth;
+    pArea.classList.add('fade');
+
+    let questionText = '';
+    if (qData.type === 'cloze') {
+        questionText = `
+            <div style="font-size: 1.35rem; line-height: 1.55;">${escapeHtml(qData.example.blankQuestion)}</div>
+            <div style="font-size: 0.9rem; color:#9ab7c5; margin-top: 8px;">例句填空</div>
+        `;
+    } else {
+        questionText = `
+            <div style="font-size: 1.25rem; color:#fff;">「${escapeHtml(qData.point.zh)}」</div>
+            <div style="font-size: 0.95rem; color:#9ab7c5; margin-top: 8px;">應該選哪個文法？</div>
+        `;
+    }
+    document.getElementById('question-text').innerHTML = questionText;
+
+    qData.options.forEach(option => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerText = option.label;
+        btn.onclick = () => handleGrammarChoice(btn, option);
+        document.getElementById('options-area').appendChild(btn);
+    });
+
+    startTimer();
+}
+
+function handleGrammarChoice(btn, option) {
+    clearInterval(timerInt);
+    const btns = document.querySelectorAll('.option-btn');
+    btns.forEach(button => button.disabled = true);
+
+    if (option.isCorrect) {
+        btn.classList.add('correct');
+        score++;
+    } else {
+        btn.classList.add('wrong');
+        mistakes.add(currentQuestionData.example ? currentQuestionData.example.id : currentQuestionData.point.id);
+        btns.forEach((button, index) => {
+            if (currentQuestionData.options[index] && currentQuestionData.options[index].isCorrect) {
+                button.classList.add('correct');
+            }
+        });
+    }
+    showGrammarAnswerDetails(option.point);
+}
+
+function showGrammarAnswerDetails(selectedPoint = null) {
+    const qData = currentQuestionData;
+    let displayHtml = `
+        <div style="font-size: 1.35rem; color: #fff;">${escapeHtml(qData.point.pattern)}</div>
+        <div style="font-size: 1rem; color: #ffd8aa; margin-top: 6px;">${escapeHtml(qData.point.zh)}</div>
+        <div style="font-size: 0.85rem; color: #9ab7c5; margin-top: 6px;">${escapeHtml(qData.point.connection)}</div>
+    `;
+
+    if (selectedPoint && selectedPoint.id !== qData.point.id) {
+        displayHtml += `<div style="font-size: 0.9rem; color: #f5a3a3; margin-top: 8px;">你選的是：${escapeHtml(selectedPoint.pattern)}｜${escapeHtml(selectedPoint.zh)}</div>`;
+    }
+    if (qData.example) {
+        displayHtml += `
+            <div style="font-size: 1rem; color: #87ceeb; margin-top: 12px; line-height: 1.5;">${escapeHtml(qData.example.sentence)}</div>
+            <div style="font-size: 0.95rem; color: #aaa; margin-top: 5px; line-height: 1.45;">${escapeHtml(qData.example.zh)}</div>
+        `;
+    }
+
+    document.getElementById('question-text').innerHTML = displayHtml;
+    document.getElementById('btn-next').classList.remove('hidden');
+}
+
 function startTimer() {
     clearInterval(timerInt);
     timeLeft = 30;
@@ -1024,6 +1381,19 @@ function checkManualAnswer() {
 }
 
 function handleTimeout() {
+    if (activePracticeMode === 'grammar') {
+        mistakes.add(currentQuestionData.example ? currentQuestionData.example.id : currentQuestionData.point.id);
+        let btns = document.querySelectorAll('.option-btn');
+        btns.forEach((button, index) => {
+            button.disabled = true;
+            if (currentQuestionData.options[index] && currentQuestionData.options[index].isCorrect) {
+                button.classList.add('correct');
+            }
+        });
+        showGrammarAnswerDetails();
+        return;
+    }
+
     mistakes.add(currentQuestionData.card.id);
     if (currentQuestionData.type !== 'manual') {
         let btns = document.querySelectorAll('.option-btn');
@@ -1042,6 +1412,7 @@ function handleTimeout() {
 
 function markUnfamiliar() {
     if (!currentQuestionData) return;
+    if (activePracticeMode !== 'vocab') return;
     mistakes.add(currentQuestionData.card.id);
     let btn = document.getElementById('btn-unfamiliar');
     btn.innerText = "已記錄";
@@ -1050,7 +1421,11 @@ function markUnfamiliar() {
 
 function nextQuestion() {
     currentQIndex++;
-    renderQuestion();
+    if (activePracticeMode === 'grammar') {
+        renderGrammarQuestion();
+    } else {
+        renderQuestion();
+    }
 }
 
 function varColor(name) {
@@ -1059,6 +1434,11 @@ function varColor(name) {
 
 // --- Result Screen ---
 function endPractice() {
+    if (activePracticeMode === 'grammar') {
+        endGrammarPractice();
+        return;
+    }
+
     document.getElementById('practice-area').classList.add('hidden');
     document.getElementById('result-area').classList.remove('hidden');
     document.getElementById('result-area').classList.add('fade');
@@ -1066,6 +1446,7 @@ function endPractice() {
     let total = practiceQueue.length;
     let rate = Math.round((score / total) * 100);
     document.getElementById('score-display').innerText = `正解率: ${rate}% (${score}/${total})`;
+    document.getElementById('result-list-title').innerText = '重點錯誤/不熟題目 (勾選加入收藏)';
 
     const list = document.getElementById('result-list');
     list.innerHTML = '';
@@ -1087,6 +1468,40 @@ function endPractice() {
             }
         });
     }
+}
+
+function endGrammarPractice() {
+    document.getElementById('practice-area').classList.add('hidden');
+    document.getElementById('result-area').classList.remove('hidden');
+    document.getElementById('result-area').classList.add('fade');
+
+    const total = practiceQueue.length;
+    const rate = Math.round((score / total) * 100);
+    document.getElementById('score-display').innerText = `正解率: ${rate}% (${score}/${total})`;
+    document.getElementById('result-list-title').innerText = '錯誤文法整理';
+
+    const list = document.getElementById('result-list');
+    list.innerHTML = '';
+
+    if (mistakes.size === 0) {
+        list.innerHTML = '<div style="text-align:center;">無錯誤項目，完美！</div>';
+        return;
+    }
+
+    practiceQueue.forEach(qData => {
+        const key = qData.example ? qData.example.id : qData.point.id;
+        if (!mistakes.has(key)) return;
+
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+            <span>
+                [${escapeHtml(qData.point.category)}] ${escapeHtml(qData.point.pattern)} - ${escapeHtml(qData.point.zh)}
+                ${qData.example ? `<br><span style="color:#aaa;">${escapeHtml(qData.example.sentence)}｜${escapeHtml(qData.example.zh)}</span>` : ''}
+            </span>
+        `;
+        list.appendChild(div);
+    });
 }
 
 function saveResultFavoritesAndReturn() {
@@ -1113,6 +1528,15 @@ function saveResultFavoritesAndReturn() {
 function csvCell(value) {
     const text = String(value || '');
     return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function shuffleArray(array) {

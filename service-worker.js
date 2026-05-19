@@ -1,8 +1,10 @@
-const CACHE_NAME = 'jlpt-practicevoc-v1';
+const CACHE_NAME = 'jlpt-practicevoc-v2';
 const APP_SHELL = [
   './',
   './index.html',
   './vocab.csv',
+  './grammar_points.csv',
+  './grammar_examples.csv',
   './manifest.json',
   './assets/icon-180.png',
   './assets/icon-192.png',
