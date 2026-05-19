@@ -205,7 +205,7 @@
         </div>
 
         <div class="section-box">
-            <div class="section-title">選擇詞性</div>
+            <div class="section-title">選擇單字詞性</div>
             <div class="checkbox-group" id="pos-checks">
                 <label class="checkbox-item"><input type="checkbox" value="名詞" checked> 名詞</label>
                 <label class="checkbox-item"><input type="checkbox" value="動詞" checked> 動詞</label>
@@ -306,7 +306,7 @@
         <div class="form-group"><label>日文名稱 (無漢字留空)</label><input type="text" id="edit-kanji"></div>
         <div class="form-group"><label>日文拼音 (必填)</label><input type="text" id="edit-kana"></div>
         <div class="form-group"><label>類別 (必填)</label><select id="edit-category"><option value="單字">單字</option><option value="語彙">語彙</option></select></div>
-        <div class="form-group"><label>詞性 (可手動修正)</label><select id="edit-pos"><option value="名詞">名詞</option><option value="動詞">動詞</option><option value="形容詞">形容詞</option><option value="副詞">副詞</option></select></div>
+        <div class="form-group"><label>詞性 (單字適用)</label><select id="edit-pos"><option value="">語彙不分類</option><option value="名詞">名詞</option><option value="動詞">動詞</option><option value="形容詞">形容詞</option><option value="副詞">副詞</option></select></div>
         <div class="form-group"><label>中文意思 (必填)</label><input type="text" id="edit-zh"></div>
         
         <div style="display: flex; justify-content: space-between; margin-top: 20px;">
@@ -405,6 +405,7 @@ function normalizePartOfSpeech(value) {
 }
 
 function inferPartOfSpeech(card) {
+    if (card.category === '語彙') return '';
     const lookup = getDefaultPartOfSpeechLookup();
     const exactKey = buildPartOfSpeechKey(card);
     const looseKey = `${card.kana || ''}|${card.zh || ''}`;
@@ -435,8 +436,14 @@ function getDefaultPartOfSpeechLookup() {
 
 function normalizeCard(card) {
     const normalized = { ...card };
-    normalized.partOfSpeech = normalizePartOfSpeech(card.partOfSpeech || card.pos || card.詞性) || inferPartOfSpeech(card);
+    normalized.partOfSpeech = normalized.category === '語彙'
+        ? ''
+        : normalizePartOfSpeech(card.partOfSpeech || card.pos || card.詞性) || inferPartOfSpeech(card);
     return normalized;
+}
+
+function formatCardMeta(card) {
+    return card.category === '語彙' ? card.category : `${card.category} / ${card.partOfSpeech || '未分類'}`;
 }
 
 function parseCSVLine(line) {
@@ -513,14 +520,14 @@ function openCardManager() {
         let div = document.createElement('div');
         div.className = 'list-item';
         div.innerHTML = `
-            <span>[${card.level} / ${card.partOfSpeech}] ${card.kanji || card.kana} ${card.zh}</span>
+            <span>[${card.level} / ${formatCardMeta(card)}] ${card.kanji || card.kana} ${card.zh}</span>
             <button onclick="openEditForm(${card.id})" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">編輯</button>
         `;
         list.appendChild(div);
     });
     
     let csvStr = "級別,日文名稱,日文拼音,類別,中文意思,詞性\n";
-    db.forEach(c => csvStr += `${csvCell(c.level)},${csvCell(c.kanji)},${csvCell(c.kana)},${csvCell(c.category)},${csvCell(c.zh)},${csvCell(c.partOfSpeech)}\n`);
+    db.forEach(c => csvStr += `${csvCell(c.level)},${csvCell(c.kanji)},${csvCell(c.kana)},${csvCell(c.category)},${csvCell(c.zh)},${csvCell(c.category === '語彙' ? '' : c.partOfSpeech)}\n`);
     document.getElementById('csv-io').value = csvStr;
     
     document.getElementById('card-manager-modal').showModal();
@@ -557,7 +564,7 @@ function openEditForm(id = null) {
         document.getElementById('edit-kanji').value = card.kanji;
         document.getElementById('edit-kana').value = card.kana;
         document.getElementById('edit-category').value = card.category;
-        document.getElementById('edit-pos').value = card.partOfSpeech || inferPartOfSpeech(card);
+        document.getElementById('edit-pos').value = card.category === '語彙' ? '' : card.partOfSpeech || inferPartOfSpeech(card);
         document.getElementById('edit-zh').value = card.zh;
     } else {
         document.getElementById('edit-form-title').innerText = '新增字卡';
@@ -569,6 +576,7 @@ function openEditForm(id = null) {
         document.getElementById('edit-pos').value = '名詞';
         document.getElementById('edit-zh').value = '';
     }
+    updateEditPosState();
     form.showModal();
 }
 
@@ -579,7 +587,7 @@ function saveCard() {
         kanji: document.getElementById('edit-kanji').value.trim(),
         kana: document.getElementById('edit-kana').value.trim(),
         category: document.getElementById('edit-category').value,
-        partOfSpeech: document.getElementById('edit-pos').value,
+        partOfSpeech: document.getElementById('edit-category').value === '語彙' ? '' : document.getElementById('edit-pos').value,
         zh: document.getElementById('edit-zh').value.trim()
     };
     if (!cardData.level || !cardData.kana || !cardData.category || !cardData.zh) {
@@ -600,6 +608,18 @@ function saveCard() {
     openCardManager();
 }
 
+function updateEditPosState() {
+    const category = document.getElementById('edit-category').value;
+    const posSelect = document.getElementById('edit-pos');
+    const isPhrase = category === '語彙';
+    posSelect.disabled = isPhrase;
+    if (isPhrase) {
+        posSelect.value = '';
+    } else if (!posSelect.value) {
+        posSelect.value = '名詞';
+    }
+}
+
 // --- Favorites List & Browse ---
 function openFavorites() {
     const list = document.getElementById('fav-list');
@@ -613,7 +633,7 @@ function openFavorites() {
             let div = document.createElement('div');
             div.className = 'list-item';
             div.innerHTML = `
-                <span>[${card.level} / ${card.partOfSpeech}] ${card.kanji || card.kana} - ${card.zh}</span>
+                <span>[${card.level} / ${formatCardMeta(card)}] ${card.kanji || card.kana} - ${card.zh}</span>
                 <input type="checkbox" class="fav-checkbox" value="${card.id}" checked>
             `;
             list.appendChild(div);
@@ -654,7 +674,7 @@ function renderBrowseCard() {
     document.getElementById('browse-progress').innerText = `${browseIndex + 1} / ${browseList.length}`;
     
     let html = `
-        <div style="font-size: 0.9rem; color: #aaa; margin-bottom: 10px;">[${card.level}] - ${card.category} / ${card.partOfSpeech}</div>
+        <div style="font-size: 0.9rem; color: #aaa; margin-bottom: 10px;">[${card.level}] - ${formatCardMeta(card)}</div>
         <div style="font-size: 2.5rem; color: #fff; margin-bottom: 10px;">${card.kanji || card.kana}</div>
         ${card.kanji ? `<div style="font-size: 1.2rem; color: #aaa; margin-bottom: 10px;">${card.kana}</div>` : ''}
         <div style="font-size: 1.2rem; color: #87ceeb;">${card.zh}</div>
@@ -693,11 +713,18 @@ function startPractice() {
     const poolSizeVal = parseInt(document.getElementById('pool-size').value);
     const poolMax = poolSizeVal > 100 ? 9999 : poolSizeVal;
 
-    if (levels.length === 0 || types.length === 0 || categories.length === 0 || partsOfSpeech.length === 0 || isNaN(reqQCount)) {
-        alert("級別、題型、類別、詞性至少需勾選一項，且題目數量必須為數字。"); return;
+    if (levels.length === 0 || types.length === 0 || categories.length === 0 || isNaN(reqQCount)) {
+        alert("級別、題型、類別至少需勾選一項，且題目數量必須為數字。"); return;
+    }
+    if (categories.includes('單字') && partsOfSpeech.length === 0) {
+        alert("練習單字時，單字詞性至少需勾選一項。"); return;
     }
 
-    let eligibleCards = db.filter(c => categories.includes(c.category) && partsOfSpeech.includes(c.partOfSpeech));
+    let eligibleCards = db.filter(c => {
+        if (!categories.includes(c.category)) return false;
+        if (c.category === '語彙') return true;
+        return partsOfSpeech.includes(c.partOfSpeech);
+    });
     let pool = [];
     
     if (levels.includes("收藏")) {
@@ -769,7 +796,11 @@ function startPractice() {
 }
 
 function getDistractors(correctCard, pool, count, logicType) {
-    let distractors = pool.filter(c => c.id !== correctCard.id && c.category === correctCard.category && c.partOfSpeech === correctCard.partOfSpeech);
+    let distractors = pool.filter(c => {
+        if (c.id === correctCard.id || c.category !== correctCard.category) return false;
+        if (correctCard.category === '語彙') return true;
+        return c.partOfSpeech === correctCard.partOfSpeech;
+    });
     if (distractors.length < count) {
         const fallback = pool.filter(c => c.id !== correctCard.id && c.category === correctCard.category && !distractors.some(d => d.id === c.id));
         distractors.push(...fallback);
@@ -894,7 +925,7 @@ function showAnswerDetails() {
         displayHtml += `<div style="font-size: 1.8rem; color: #fff;">${card.kanji}</div>`;
     }
     displayHtml += `<div style="font-size: 1.2rem; color: #aaa; margin-top: 5px;">${card.kana}</div>`;
-    displayHtml += `<div style="font-size: 0.95rem; color: #aaa; margin-top: 5px;">${card.category} / ${card.partOfSpeech}</div>`;
+    displayHtml += `<div style="font-size: 0.95rem; color: #aaa; margin-top: 5px;">${formatCardMeta(card)}</div>`;
     displayHtml += `<div style="font-size: 1.2rem; color: #87ceeb; margin-top: 5px;">${card.zh}</div>`;
     
     document.getElementById('question-text').innerHTML = displayHtml;
@@ -995,7 +1026,7 @@ function endPractice() {
                 div.className = 'list-item';
                 let isFav = favIds.has(card.id) ? 'checked' : '';
                 div.innerHTML = `
-                    <span>[${card.level} / ${card.partOfSpeech}] ${card.kanji || card.kana} - ${card.zh}</span>
+                    <span>[${card.level} / ${formatCardMeta(card)}] ${card.kanji || card.kana} - ${card.zh}</span>
                     <input type="checkbox" class="result-fav-cb" value="${card.id}" ${isFav}>
                 `;
                 list.appendChild(div);
@@ -1044,6 +1075,7 @@ init();
 document.getElementById('manual-input').addEventListener('keypress', function (e) {
     if (e.key === 'Enter' && !this.disabled) checkManualAnswer();
 });
+document.getElementById('edit-category').addEventListener('change', updateEditPosState);
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
