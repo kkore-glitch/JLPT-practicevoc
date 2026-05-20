@@ -229,11 +229,8 @@
 
         <div id="grammar-menu" class="hidden">
             <div class="section-box">
-                <div class="section-title">選擇文法題型</div>
-                <div class="checkbox-group" id="grammar-type-checks">
-                    <label class="checkbox-item"><input type="checkbox" value="cloze" checked> 例句填空</label>
-                    <label class="checkbox-item"><input type="checkbox" value="meaning" checked> 中文選文法</label>
-                </div>
+                <div class="section-title">文法題型</div>
+                <div class="source-status">例句填空</div>
             </div>
 
             <div class="section-box">
@@ -940,11 +937,10 @@ function startPractice() {
 
 function startGrammarPractice() {
     activePracticeMode = 'grammar';
-    const types = getCheckedValues('#grammar-type-checks');
     const reqQCount = parseInt(document.getElementById('grammar-question-count').value);
 
-    if (types.length === 0 || isNaN(reqQCount)) {
-        alert("文法題型至少需勾選一項，且題目數量必須為數字。"); return;
+    if (isNaN(reqQCount)) {
+        alert("題目數量必須為數字。"); return;
     }
     if (grammarPoints.length === 0 || grammarExamples.length === 0) {
         alert("文法題庫尚未載入成功，請稍後重試或確認 Google Sheet 已發布成 CSV。"); return;
@@ -966,31 +962,17 @@ function startGrammarPractice() {
     score = 0;
 
     let examplesPool = [...eligibleExamples];
-    let pointsPool = [...eligiblePoints];
     shuffleArray(examplesPool);
-    shuffleArray(pointsPool);
 
     for (let i = 0; i < reqQCount; i++) {
-        let type = types[Math.floor(Math.random() * types.length)];
-        if (type === 'cloze' && examplesPool.length === 0) {
+        if (examplesPool.length === 0) {
             examplesPool = [...eligibleExamples];
             shuffleArray(examplesPool);
         }
-        if (type === 'meaning' && pointsPool.length === 0) {
-            pointsPool = [...eligiblePoints];
-            shuffleArray(pointsPool);
-        }
 
-        if (type === 'cloze' && eligibleExamples.length > 0) {
-            const example = examplesPool.pop();
-            const point = pointMap.get(example.grammarId);
-            practiceQueue.push(buildGrammarQuestion('cloze', point, example, eligiblePoints));
-        } else {
-            const point = pointsPool.pop() || eligiblePoints[Math.floor(Math.random() * eligiblePoints.length)];
-            const examples = grammarExamples.filter(example => example.grammarId === point.id);
-            const example = examples[Math.floor(Math.random() * examples.length)] || null;
-            practiceQueue.push(buildGrammarQuestion('meaning', point, example, eligiblePoints));
-        }
+        const example = examplesPool.pop();
+        const point = pointMap.get(example.grammarId);
+        practiceQueue.push(buildGrammarQuestion(point, example, eligiblePoints));
     }
 
     document.getElementById('btn-open-fav').classList.add('hidden');
@@ -1171,24 +1153,25 @@ function getGrammarPointMap() {
     return new Map(grammarPoints.map(point => [point.id, point]));
 }
 
-function buildGrammarQuestion(type, point, example, pool) {
-    const distractors = getGrammarDistractors(point, pool, 3);
+function buildGrammarQuestion(point, example, pool) {
+    const distractors = getGrammarDistractors(point, pool, 3, example);
     const options = [
-        { label: type === 'cloze' && example ? example.answer : point.pattern, point, isCorrect: true },
+        { label: example.answer, point, isCorrect: true },
         ...distractors.map(distractor => ({
-            label: type === 'cloze' ? cleanGrammarPattern(distractor.pattern) : distractor.pattern,
+            label: cleanGrammarPattern(distractor.pattern),
             point: distractor,
             isCorrect: false
         }))
     ];
     shuffleArray(options);
-    return { mode: 'grammar', type, point, example, options };
+    return { mode: 'grammar', type: 'cloze', point, example, options };
 }
 
-function getGrammarDistractors(correctPoint, pool, count) {
+function getGrammarDistractors(correctPoint, pool, count, example = null) {
     const selected = [];
     const addPoint = point => {
         if (!point || point.id === correctPoint.id || selected.some(item => item.id === point.id)) return;
+        if (isPlausibleAlternativeForExample(correctPoint, point, example)) return;
         selected.push(point);
     };
 
@@ -1205,6 +1188,48 @@ function getGrammarDistractors(correctPoint, pool, count) {
     fallback.forEach(addPoint);
 
     return selected.slice(0, count);
+}
+
+function isPlausibleAlternativeForExample(correctPoint, candidatePoint, example) {
+    if (!example) return false;
+    const pairKey = [correctPoint.pattern, candidatePoint.pattern].sort().join('|');
+    const answer = example.answer;
+    const sentence = example.sentence;
+
+    const sameMeaningSameSlot = new Set([
+        ['〜なり', '〜が早いか'].sort().join('|'),
+        ['〜なり', '〜や否や'].sort().join('|'),
+        ['〜が早いか', '〜や否や'].sort().join('|'),
+        ['〜からには', '〜以上は'].sort().join('|'),
+        ['〜にはあたらない', '〜までもない'].sort().join('|'),
+        ['〜たところで', '〜としたところで'].sort().join('|')
+    ]);
+    if (sameMeaningSameSlot.has(pairKey)) return true;
+
+    if (correctPoint.pattern === '〜とあれば' || candidatePoint.pattern === '〜とあれば') {
+        return sentence.includes('必要とあれば') || sentence.includes('ためとあれば') || sentence.includes('関わるとあれば') || sentence.includes('頼まれたとあれば');
+    }
+
+    if ((correctPoint.pattern === '〜うえは' || candidatePoint.pattern === '〜うえは') && ['〜からには', '〜以上は'].includes(correctPoint.pattern === '〜うえは' ? candidatePoint.pattern : correctPoint.pattern)) {
+        return /決めた|引き受けた|選ばれた|始めた|約束した/.test(sentence);
+    }
+
+    if (['〜なくしては', '〜なしに', '〜ことなしに'].includes(correctPoint.pattern) && ['〜なくしては', '〜なしに', '〜ことなしに'].includes(candidatePoint.pattern)) {
+        return /ない|できない|得られない|難しい|ならない/.test(sentence);
+    }
+
+    if (['〜かたがた', '〜がてら'].includes(correctPoint.pattern) && ['〜かたがた', '〜がてら'].includes(candidatePoint.pattern)) {
+        return /挨拶|報告|お礼|散歩|買い物|休憩|見学/.test(sentence);
+    }
+
+    if (['〜に即して', '〜に則って', '〜を踏まえて'].includes(correctPoint.pattern) && ['〜に即して', '〜に則って', '〜を踏まえて'].includes(candidatePoint.pattern)) {
+        return /法律|規則|方針|基準|結果|意見|現状|実態/.test(sentence);
+    }
+
+    if (answer.includes('ようが') && candidatePoint.pattern === '〜ようが〜まいが') return true;
+    if (answer.includes('うが') && candidatePoint.pattern === '〜ようが') return true;
+
+    return false;
 }
 
 function cleanGrammarPattern(pattern) {
@@ -1231,18 +1256,10 @@ function renderGrammarQuestion() {
     void pArea.offsetWidth;
     pArea.classList.add('fade');
 
-    let questionText = '';
-    if (qData.type === 'cloze') {
-        questionText = `
-            <div style="font-size: 1.35rem; line-height: 1.55;">${escapeHtml(qData.example.blankQuestion)}</div>
-            <div style="font-size: 0.9rem; color:#9ab7c5; margin-top: 8px;">例句填空</div>
-        `;
-    } else {
-        questionText = `
-            <div style="font-size: 1.25rem; color:#fff;">「${escapeHtml(qData.point.zh)}」</div>
-            <div style="font-size: 0.95rem; color:#9ab7c5; margin-top: 8px;">應該選哪個文法？</div>
-        `;
-    }
+    const questionText = `
+        <div style="font-size: 1.35rem; line-height: 1.55;">${escapeHtml(qData.example.blankQuestion)}</div>
+        <div style="font-size: 0.9rem; color:#9ab7c5; margin-top: 8px;">例句填空</div>
+    `;
     document.getElementById('question-text').innerHTML = questionText;
 
     qData.options.forEach(option => {
