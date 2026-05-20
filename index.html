@@ -344,7 +344,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-05-20-grammar-start-v2';
+const APP_VERSION = '2026-05-20-grammar-140';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -1206,16 +1206,24 @@ function isPlausibleAlternativeForExample(correctPoint, candidatePoint, example)
     const sentence = example.sentence;
 
     const sameMeaningSameSlot = new Set([
-        ['〜なり', '〜が早いか'].sort().join('|'),
-        ['〜なり', '〜や否や'].sort().join('|'),
-        ['〜が早いか', '〜や否や'].sort().join('|'),
-        ['〜からには', '〜以上は'].sort().join('|'),
-        ['〜にはあたらない', '〜までもない'].sort().join('|'),
-        ['〜たところで', '〜としたところで'].sort().join('|')
+        ...buildAmbiguousPairs(['〜なり', '〜が早いか', '〜や否や']),
+        ...buildAmbiguousPairs(['〜からには', '〜以上は']),
+        ...buildAmbiguousPairs(['〜にはあたらない', '〜までもない', '〜ほどのことではない']),
+        ...buildAmbiguousPairs(['〜たところで', '〜としたところで', '〜にしたところで']),
+        ...buildAmbiguousPairs(['〜が最後', '〜たら最後']),
+        ...buildAmbiguousPairs(['〜かたがた', '〜がてら', '〜を兼ねて']),
+        ...buildAmbiguousPairs(['〜に先立って', '〜に先駆けて', '〜を前に']),
+        ...buildAmbiguousPairs(['〜ものとして', '〜ものとする']),
+        ...buildAmbiguousPairs(['〜といい〜といい', '〜といわず〜といわず']),
+        ...buildAmbiguousPairs(['〜だに', '〜すら', '〜はおろか']),
+        ...buildAmbiguousPairs(['〜ずとも', '〜ことなしに', '〜なしに']),
+        ...buildAmbiguousPairs(['〜いかん', '〜にかかっている'])
     ]);
     if (sameMeaningSameSlot.has(pairKey)) return true;
 
-    if (correctPoint.pattern === '〜とあれば' || candidatePoint.pattern === '〜とあれば') {
+    if (['〜からには', '〜以上は', '〜うえは', '〜とあれば'].includes(correctPoint.pattern)
+        && ['〜からには', '〜以上は', '〜うえは', '〜とあれば'].includes(candidatePoint.pattern)
+        && (correctPoint.pattern === '〜とあれば' || candidatePoint.pattern === '〜とあれば')) {
         return sentence.includes('必要とあれば') || sentence.includes('ためとあれば') || sentence.includes('関わるとあれば') || sentence.includes('頼まれたとあれば');
     }
 
@@ -1239,6 +1247,16 @@ function isPlausibleAlternativeForExample(correctPoint, candidatePoint, example)
     if (answer.includes('うが') && candidatePoint.pattern === '〜ようが') return true;
 
     return false;
+}
+
+function buildAmbiguousPairs(patterns) {
+    const pairs = [];
+    for (let i = 0; i < patterns.length; i++) {
+        for (let j = i + 1; j < patterns.length; j++) {
+            pairs.push([patterns[i], patterns[j]].sort().join('|'));
+        }
+    }
+    return pairs;
 }
 
 function cleanGrammarPattern(pattern) {
