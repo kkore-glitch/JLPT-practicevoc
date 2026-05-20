@@ -355,6 +355,7 @@ let defaultCSVSource = '';
 let defaultCSVLoadedAt = null;
 let grammarCSVSource = '';
 let grammarCSVLoadedAt = null;
+let grammarLoadPromise = null;
 
 let db = [];
 let grammarPoints = [];
@@ -377,8 +378,8 @@ const PARTS_OF_SPEECH = ['名詞', '動詞', '形容詞', '副詞'];
 let defaultPartOfSpeechLookup = null;
 
 async function init() {
+    grammarLoadPromise = loadGrammarCSVs();
     await loadDefaultCSV();
-    await loadGrammarCSVs();
 
     let customData = localStorage.getItem('jp_custom_db');
     if (customData) {
@@ -390,6 +391,7 @@ async function init() {
         parseCSV(defaultCSV, true);
     }
     updateSourceStatus();
+    await grammarLoadPromise;
     updateGrammarSourceStatus();
 }
 
@@ -433,6 +435,8 @@ function updateSourceStatus() {
 }
 
 async function loadGrammarCSVs() {
+    if (grammarPoints.length > 0 && grammarExamples.length > 0) return;
+
     const sources = [
         {
             name: '本機備援文法 CSV',
@@ -935,12 +939,16 @@ function startPractice() {
     renderQuestion();
 }
 
-function startGrammarPractice() {
+async function startGrammarPractice() {
     activePracticeMode = 'grammar';
     const reqQCount = parseInt(document.getElementById('grammar-question-count').value);
 
     if (isNaN(reqQCount)) {
         alert("題目數量必須為數字。"); return;
+    }
+    if (grammarLoadPromise) {
+        await grammarLoadPromise;
+        updateGrammarSourceStatus();
     }
     if (grammarPoints.length === 0 || grammarExamples.length === 0) {
         alert("文法題庫尚未載入成功，請稍後重試或確認 Google Sheet 已發布成 CSV。"); return;
@@ -953,7 +961,7 @@ function startGrammarPractice() {
         return Boolean(point);
     });
 
-    if (eligiblePoints.length === 0 || (types.includes('cloze') && eligibleExamples.length === 0)) {
+    if (eligiblePoints.length === 0 || eligibleExamples.length === 0) {
         alert("所選條件內沒有可用的文法題。"); return;
     }
 
