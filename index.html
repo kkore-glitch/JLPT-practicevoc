@@ -287,6 +287,7 @@
         </div>
 
         <button id="btn-next" class="btn btn-accent hidden" style="margin-top: 20px;" onclick="nextQuestion()">下一題</button>
+        <button id="btn-finish-now" class="btn" style="margin-top: 10px;" onclick="finishPracticeNow()">立即結算</button>
     </main>
 
     <!-- Result Area -->
@@ -371,7 +372,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-06-03-grammar-160-favs';
+const APP_VERSION = '2026-06-03-finish-and-split-options';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -398,6 +399,9 @@ let timerInt;
 let timeLeft = 30;
 let mistakes = new Set();
 let currentQuestionData = null;
+let completedQuestionCount = 0;
+let currentQuestionSettled = false;
+let resultTotalOverride = null;
 
 let browseList = [];
 let browseIndex = 0;
@@ -1026,7 +1030,10 @@ function startPractice() {
     practiceQueue = [];
     mistakes.clear();
     score = 0;
-    
+    completedQuestionCount = 0;
+    currentQuestionSettled = false;
+    resultTotalOverride = null;
+
     let cardSequence = [];
     let tempPool = [...pool];
     shuffleArray(tempPool);
@@ -1105,6 +1112,9 @@ async function startGrammarPractice() {
     practiceQueue = [];
     mistakes.clear();
     score = 0;
+    completedQuestionCount = 0;
+    currentQuestionSettled = false;
+    resultTotalOverride = null;
 
     let examplesPool = [...eligibleExamples];
     shuffleArray(examplesPool);
@@ -1213,6 +1223,7 @@ function renderQuestion() {
 
     let qData = practiceQueue[currentQIndex];
     currentQuestionData = qData;
+    currentQuestionSettled = false;
     let card = qData.card;
     let type = qData.type;
 
@@ -1303,7 +1314,7 @@ function buildGrammarQuestion(point, example, pool) {
     const options = [
         { label: example.answer, point, isCorrect: true },
         ...distractors.map(distractor => ({
-            label: cleanGrammarPattern(distractor.pattern),
+            label: formatGrammarOptionLabel(distractor, example),
             point: distractor,
             isCorrect: false
         }))
@@ -1316,6 +1327,7 @@ function getGrammarDistractors(correctPoint, pool, count, example = null) {
     const selected = [];
     const addPoint = point => {
         if (!point || point.id === correctPoint.id || selected.some(item => item.id === point.id)) return;
+        if (!matchesGrammarOptionShape(correctPoint, point, example)) return;
         if (isPlausibleAlternativeForExample(correctPoint, point, example)) return;
         selected.push(point);
     };
@@ -1409,6 +1421,47 @@ function cleanGrammarPattern(pattern) {
     return String(pattern || '').replace(/^〜/, '');
 }
 
+const SPLIT_OPTION_PATTERNS = new Map([
+    ['〜ようが〜まいが', 'ようが／まいが'],
+    ['〜であれ', 'であれ／であれ'],
+    ['〜といい〜といい', 'といい／といい'],
+    ['〜つ〜つ', 'つ／つ'],
+    ['〜といわず〜といわず', 'といわず／といわず'],
+    ['〜やら〜やら', 'やら／やら'],
+    ['〜なり〜なり', 'なり／なり'],
+    ['〜だろうか〜だろうか', 'だろうか／だろうか'],
+    ['〜だの〜だの', 'だの／だの'],
+    ['〜たり〜たり', 'たり／たり'],
+    ['〜というか〜というか', 'というか／というか'],
+    ['〜とか〜とか', 'とか／とか'],
+    ['〜にしても〜にしても', 'にしても／にしても']
+]);
+
+function getGrammarBlankCount(example) {
+    return (example && example.blankQuestion.match(/____/g) || []).length;
+}
+
+function hasSplitGrammarAnswer(example) {
+    return String(example && example.answer || '').includes('／');
+}
+
+function isSplitOptionPoint(point, example = null) {
+    if (point.pattern === '〜であれ') return hasSplitGrammarAnswer(example);
+    return SPLIT_OPTION_PATTERNS.has(point.pattern);
+}
+
+function matchesGrammarOptionShape(correctPoint, candidatePoint, example) {
+    const isSplitQuestion = hasSplitGrammarAnswer(example) || isSplitOptionPoint(correctPoint, example);
+    return isSplitQuestion === isSplitOptionPoint(candidatePoint, example);
+}
+
+function formatGrammarOptionLabel(point, example) {
+    if (hasSplitGrammarAnswer(example) && SPLIT_OPTION_PATTERNS.has(point.pattern)) {
+        return SPLIT_OPTION_PATTERNS.get(point.pattern);
+    }
+    return cleanGrammarPattern(point.pattern);
+}
+
 function renderGrammarQuestion() {
     if (currentQIndex >= practiceQueue.length) {
         endPractice();
@@ -1417,6 +1470,7 @@ function renderGrammarQuestion() {
 
     const qData = practiceQueue[currentQIndex];
     currentQuestionData = qData;
+    currentQuestionSettled = false;
 
     document.getElementById('options-area').innerHTML = '';
     document.getElementById('manual-area').classList.add('hidden');
@@ -1463,6 +1517,7 @@ function handleGrammarChoice(btn, option) {
             }
         });
     }
+    markQuestionSettled();
     showGrammarAnswerDetails(option.point);
 }
 
@@ -1503,6 +1558,30 @@ function startTimer() {
     }, 1000);
 }
 
+function markQuestionSettled() {
+    if (currentQuestionSettled) return;
+    currentQuestionSettled = true;
+    completedQuestionCount++;
+}
+
+function finishPracticeNow() {
+    clearInterval(timerInt);
+    const fallbackTotal = score + mistakes.size;
+    resultTotalOverride = Math.max(completedQuestionCount, fallbackTotal);
+    endPractice();
+}
+
+function getResultTotal() {
+    return resultTotalOverride === null ? practiceQueue.length : resultTotalOverride;
+}
+
+function formatScoreResult(total) {
+    if (total <= 0) return `正解率: --% (${score}/0)`;
+    const cappedScore = Math.min(score, total);
+    const rate = Math.round((cappedScore / total) * 100);
+    return `正解率: ${rate}% (${cappedScore}/${total})`;
+}
+
 function showAnswerDetails() {
     let card = currentQuestionData.card;
     let displayHtml = "";
@@ -1532,6 +1611,7 @@ function handleChoice(btn, isCorrect, correctStr) {
             if (b.innerText === correctStr) b.classList.add('correct');
         });
     }
+    markQuestionSettled();
     showAnswerDetails();
 }
 
@@ -1551,12 +1631,14 @@ function checkManualAnswer() {
         manualInput.style.backgroundColor = varColor('--wrong-color');
         mistakes.add(currentQuestionData.card.id);
     }
+    markQuestionSettled();
     showAnswerDetails();
 }
 
 function handleTimeout() {
     if (activePracticeMode === 'grammar') {
         mistakes.add(currentQuestionData.example ? currentQuestionData.example.id : currentQuestionData.point.id);
+        markQuestionSettled();
         let btns = document.querySelectorAll('.option-btn');
         btns.forEach((button, index) => {
             button.disabled = true;
@@ -1569,6 +1651,7 @@ function handleTimeout() {
     }
 
     mistakes.add(currentQuestionData.card.id);
+    markQuestionSettled();
     if (currentQuestionData.type !== 'manual') {
         let btns = document.querySelectorAll('.option-btn');
         btns.forEach(b => {
@@ -1617,14 +1700,18 @@ function endPractice() {
     document.getElementById('result-area').classList.remove('hidden');
     document.getElementById('result-area').classList.add('fade');
 
-    let total = practiceQueue.length;
-    let rate = Math.round((score / total) * 100);
-    document.getElementById('score-display').innerText = `正解率: ${rate}% (${score}/${total})`;
+    let total = getResultTotal();
+    document.getElementById('score-display').innerText = formatScoreResult(total);
     document.getElementById('result-list-title').innerText = '重點錯誤/不熟題目 (勾選加入收藏)';
 
     const list = document.getElementById('result-list');
     list.innerHTML = '';
-    
+
+    if (total <= 0) {
+        list.innerHTML = '<div style="text-align:center;">尚未完成任何題目。</div>';
+        return;
+    }
+
     if (mistakes.size === 0) {
         list.innerHTML = '<div style="text-align:center;">無錯誤項目，完美！</div>';
     } else {
@@ -1649,13 +1736,17 @@ function endGrammarPractice() {
     document.getElementById('result-area').classList.remove('hidden');
     document.getElementById('result-area').classList.add('fade');
 
-    const total = practiceQueue.length;
-    const rate = Math.round((score / total) * 100);
-    document.getElementById('score-display').innerText = `正解率: ${rate}% (${score}/${total})`;
+    const total = getResultTotal();
+    document.getElementById('score-display').innerText = formatScoreResult(total);
     document.getElementById('result-list-title').innerText = '錯誤文法整理 (勾選加入文法收藏)';
 
     const list = document.getElementById('result-list');
     list.innerHTML = '';
+
+    if (total <= 0) {
+        list.innerHTML = '<div style="text-align:center;">尚未完成任何題目。</div>';
+        return;
+    }
 
     if (mistakes.size === 0) {
         list.innerHTML = '<div style="text-align:center;">無錯誤項目，完美！</div>';
