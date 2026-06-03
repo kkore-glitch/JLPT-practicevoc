@@ -20,6 +20,8 @@
             --wrong-color: #b22222;
             --btn-bg: #1a2a3a;
             --btn-hover: #2a3a4a;
+            --accent-color: #2e8b57;
+            --accent-text: #ffffff;
         }
 
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
@@ -37,6 +39,22 @@
             flex-direction: column;
             min-height: 100vh;
             overflow-x: hidden;
+        }
+
+        body.grammar-theme {
+            --text-color: #ffb0b8;
+            --border-color: #a84955;
+            --btn-bg: #351820;
+            --btn-hover: #4a202c;
+            --accent-color: #b84555;
+        }
+
+        body.grammar-theme .section-box {
+            background-color: rgba(74, 32, 44, 0.34);
+        }
+
+        body.grammar-theme .source-status {
+            color: #d9a1aa;
         }
 
         header {
@@ -114,6 +132,7 @@
         }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn:active:not(:disabled) { background: var(--btn-hover); }
+        .btn-accent { background-color: var(--accent-color); color: var(--accent-text); font-weight: bold; }
         .btn-half { display: inline-block; width: 48%; }
 
         /* Practice Area */
@@ -224,10 +243,18 @@
             </div>
 
             <button class="btn" onclick="openCardManager()">字卡清單 (新增/編輯)</button>
-            <button class="btn" style="background-color: #2e8b57; font-weight:bold;" onclick="startPractice()">開始練習</button>
+            <button class="btn btn-accent" onclick="startPractice()">開始練習</button>
         </div>
 
         <div id="grammar-menu" class="hidden">
+            <div class="section-box">
+                <div class="section-title">文法範圍</div>
+                <div class="checkbox-group" id="grammar-scope-checks">
+                    <label class="checkbox-item"><input type="radio" name="grammar-scope" value="all" checked> 全部文法</label>
+                    <label class="checkbox-item"><input type="radio" name="grammar-scope" value="favorites"> 收藏</label>
+                </div>
+            </div>
+
             <div class="section-box">
                 <div class="section-title">文法題型</div>
                 <div class="source-status">例句填空</div>
@@ -241,7 +268,7 @@
                 <div id="grammar-source-status" class="source-status">文法題庫載入中...</div>
             </div>
 
-            <button class="btn" id="btn-start-grammar" style="background-color: #2e8b57; font-weight:bold;">開始文法練習</button>
+            <button class="btn btn-accent" id="btn-start-grammar">開始文法練習</button>
         </div>
     </main>
 
@@ -259,7 +286,7 @@
             <button id="btn-manual-submit" class="btn" onclick="checkManualAnswer()">送出</button>
         </div>
 
-        <button id="btn-next" class="btn hidden" style="margin-top: 20px; background-color: #2e8b57;" onclick="nextQuestion()">下一題</button>
+        <button id="btn-next" class="btn btn-accent hidden" style="margin-top: 20px;" onclick="nextQuestion()">下一題</button>
     </main>
 
     <!-- Result Area -->
@@ -277,14 +304,14 @@
     <!-- Favorites Modal -->
     <dialog id="favorites-modal">
         <div class="dialog-header">
-            <strong>收藏清單</strong>
+            <strong id="favorites-modal-title">收藏清單</strong>
             <div>
                 <button onclick="toggleAllFavs(true)" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">全選</button>
                 <button onclick="toggleAllFavs(false)" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">取消</button>
             </div>
         </div>
         <div id="fav-list" style="margin-bottom: 15px; max-height: 50vh; overflow-y: auto;"></div>
-        <button class="btn" style="background-color: #2e8b57; margin-bottom: 15px;" onclick="startFavBrowse()">瀏覽單字卡</button>
+        <button class="btn btn-accent" id="fav-browse-button" style="margin-bottom: 15px;" onclick="startFavBrowse()">瀏覽單字卡</button>
         <div style="display: flex; justify-content: space-between;">
             <button class="btn btn-half" onclick="document.getElementById('favorites-modal').close()">取消</button>
             <button class="btn btn-half" onclick="applyFavoritesChanges()">確定變更</button>
@@ -294,7 +321,7 @@
     <!-- Browse Favorites Modal -->
     <dialog id="browse-modal">
         <div class="dialog-header">
-            <strong>收藏瀏覽 (<span id="browse-progress"></span>)</strong>
+            <strong id="browse-modal-title">收藏瀏覽 (<span id="browse-progress"></span>)</strong>
             <button onclick="document.getElementById('browse-modal').close()" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">關閉</button>
         </div>
         <div id="browse-content" style="text-align: center; padding: 20px 0; min-height: 200px;">
@@ -344,7 +371,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-05-25-grammar-148';
+const APP_VERSION = '2026-06-03-grammar-160-favs';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -363,6 +390,7 @@ let grammarPoints = [];
 let grammarExamples = [];
 let activePracticeMode = 'vocab';
 let favIds = new Set(JSON.parse(localStorage.getItem('jp_favs') || '[]'));
+let grammarFavIds = new Set(JSON.parse(localStorage.getItem('jp_grammar_favs') || '[]'));
 let practiceQueue = [];
 let currentQIndex = 0;
 let score = 0;
@@ -394,6 +422,7 @@ async function init() {
     updateSourceStatus();
     await grammarLoadPromise;
     updateGrammarSourceStatus();
+    applyModeTheme();
 }
 
 async function loadDefaultCSV() {
@@ -536,6 +565,18 @@ function setPracticeMode(mode) {
     activePracticeMode = mode;
     document.getElementById('vocab-menu').classList.toggle('hidden', mode !== 'vocab');
     document.getElementById('grammar-menu').classList.toggle('hidden', mode !== 'grammar');
+    applyModeTheme();
+}
+
+function applyModeTheme() {
+    document.body.classList.toggle('grammar-theme', activePracticeMode === 'grammar');
+    updateFavoriteButtonLabel();
+}
+
+function updateFavoriteButtonLabel() {
+    const button = document.getElementById('btn-open-fav');
+    if (!button) return;
+    button.innerText = activePracticeMode === 'grammar' ? '文法收藏' : '收藏清單';
 }
 
 function normalizePartOfSpeech(value) {
@@ -648,6 +689,9 @@ function saveDB() {
 }
 function saveFavs() {
     localStorage.setItem('jp_favs', JSON.stringify([...favIds]));
+}
+function saveGrammarFavs() {
+    localStorage.setItem('jp_grammar_favs', JSON.stringify([...grammarFavIds]));
 }
 
 // --- UI Logic ---
@@ -766,6 +810,13 @@ function updateEditPosState() {
 
 // --- Favorites List & Browse ---
 function openFavorites() {
+    if (activePracticeMode === 'grammar') {
+        openGrammarFavorites();
+        return;
+    }
+
+    document.getElementById('favorites-modal-title').innerText = '單字收藏清單';
+    document.getElementById('fav-browse-button').innerText = '瀏覽單字卡';
     const list = document.getElementById('fav-list');
     list.innerHTML = '';
     let favCards = db.filter(c => favIds.has(c.id));
@@ -786,22 +837,58 @@ function openFavorites() {
     document.getElementById('favorites-modal').showModal();
 }
 
+function openGrammarFavorites() {
+    document.getElementById('favorites-modal-title').innerText = '文法收藏清單';
+    document.getElementById('fav-browse-button').innerText = '瀏覽文法卡';
+
+    const list = document.getElementById('fav-list');
+    list.innerHTML = '';
+    const favPoints = grammarPoints.filter(point => grammarFavIds.has(point.id));
+
+    if (favPoints.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding: 20px;">尚無文法收藏</div>';
+    } else {
+        favPoints.forEach(point => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `
+                <span>[${escapeHtml(point.level)} / ${escapeHtml(point.category)}] ${escapeHtml(point.pattern)} - ${escapeHtml(point.zh)}</span>
+                <input type="checkbox" class="fav-checkbox" value="${escapeHtml(point.id)}" checked>
+            `;
+            list.appendChild(div);
+        });
+    }
+    document.getElementById('favorites-modal').showModal();
+}
+
 function toggleAllFavs(state) {
     document.querySelectorAll('.fav-checkbox').forEach(cb => cb.checked = state);
 }
 
 function applyFavoritesChanges() {
     const checkboxes = document.querySelectorAll('.fav-checkbox');
-    checkboxes.forEach(cb => {
-        if (!cb.checked) {
-            favIds.delete(parseInt(cb.value));
-        }
-    });
-    saveFavs();
+    if (activePracticeMode === 'grammar') {
+        checkboxes.forEach(cb => {
+            if (!cb.checked) grammarFavIds.delete(cb.value);
+        });
+        saveGrammarFavs();
+    } else {
+        checkboxes.forEach(cb => {
+            if (!cb.checked) {
+                favIds.delete(parseInt(cb.value));
+            }
+        });
+        saveFavs();
+    }
     document.getElementById('favorites-modal').close();
 }
 
 function startFavBrowse() {
+    if (activePracticeMode === 'grammar') {
+        startGrammarFavBrowse();
+        return;
+    }
+
     browseList = db.filter(c => favIds.has(c.id));
     if (browseList.length === 0) {
         alert("目前沒有已收藏的字卡可供瀏覽。");
@@ -813,8 +900,26 @@ function startFavBrowse() {
     document.getElementById('browse-modal').showModal();
 }
 
+function startGrammarFavBrowse() {
+    browseList = grammarPoints.filter(point => grammarFavIds.has(point.id));
+    if (browseList.length === 0) {
+        alert("目前沒有已收藏的文法卡可供瀏覽。");
+        return;
+    }
+    document.getElementById('favorites-modal').close();
+    browseIndex = 0;
+    renderBrowseCard();
+    document.getElementById('browse-modal').showModal();
+}
+
 function renderBrowseCard() {
+    if (activePracticeMode === 'grammar') {
+        renderGrammarBrowseCard();
+        return;
+    }
+
     const card = browseList[browseIndex];
+    document.getElementById('browse-modal-title').innerHTML = '收藏瀏覽 (<span id="browse-progress"></span>)';
     document.getElementById('browse-progress').innerText = `${browseIndex + 1} / ${browseList.length}`;
     
     let html = `
@@ -825,6 +930,32 @@ function renderBrowseCard() {
     `;
     document.getElementById('browse-content').innerHTML = html;
     
+    document.getElementById('btn-browse-prev').disabled = (browseIndex === 0);
+    document.getElementById('btn-browse-next').disabled = (browseIndex === browseList.length - 1);
+}
+
+function renderGrammarBrowseCard() {
+    const point = browseList[browseIndex];
+    document.getElementById('browse-modal-title').innerHTML = '文法收藏瀏覽 (<span id="browse-progress"></span>)';
+    document.getElementById('browse-progress').innerText = `${browseIndex + 1} / ${browseList.length}`;
+
+    const examples = grammarExamples.filter(example => example.grammarId === point.id).slice(0, 5);
+    const exampleHtml = examples.map(example => `
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-color); text-align:left;">
+            <div style="font-size: 0.95rem; color:#fff; line-height:1.45;">${escapeHtml(example.sentence)}</div>
+            <div style="font-size: 0.85rem; color:#aaa; line-height:1.45;">${escapeHtml(example.zh)}</div>
+        </div>
+    `).join('');
+
+    document.getElementById('browse-content').innerHTML = `
+        <div style="font-size: 0.9rem; color: #aaa; margin-bottom: 10px;">[${escapeHtml(point.level)}] - ${escapeHtml(point.category)}</div>
+        <div style="font-size: 2rem; color: #fff; margin-bottom: 10px;">${escapeHtml(point.pattern)}</div>
+        <div style="font-size: 1.2rem; color: #ffd8aa;">${escapeHtml(point.zh)}</div>
+        <div style="font-size: 0.9rem; color: #d9a1aa; margin-top: 8px;">${escapeHtml(point.connection)}</div>
+        <div style="font-size: 0.95rem; color: #b8d8e8; margin-top: 10px; line-height: 1.45;">${escapeHtml(point.note)}</div>
+        ${exampleHtml}
+    `;
+
     document.getElementById('btn-browse-prev').disabled = (browseIndex === 0);
     document.getElementById('btn-browse-next').disabled = (browseIndex === browseList.length - 1);
 }
@@ -850,6 +981,7 @@ function getCheckedValues(selector) {
 
 function startPractice() {
     activePracticeMode = 'vocab';
+    applyModeTheme();
     const levels = getCheckedValues('#level-checks');
     const types = getCheckedValues('#type-checks');
     const categories = getCheckedValues('#category-checks');
@@ -942,7 +1074,9 @@ function startPractice() {
 
 async function startGrammarPractice() {
     activePracticeMode = 'grammar';
+    applyModeTheme();
     const reqQCount = parseInt(document.getElementById('grammar-question-count').value);
+    const grammarScope = document.querySelector('input[name="grammar-scope"]:checked')?.value || 'all';
 
     if (isNaN(reqQCount)) {
         alert("題目數量必須為數字。"); return;
@@ -956,14 +1090,16 @@ async function startGrammarPractice() {
     }
 
     const pointMap = getGrammarPointMap();
-    const eligiblePoints = grammarPoints;
+    const eligiblePoints = grammarScope === 'favorites'
+        ? grammarPoints.filter(point => grammarFavIds.has(point.id))
+        : grammarPoints;
     const eligibleExamples = grammarExamples.filter(example => {
         const point = pointMap.get(example.grammarId);
-        return Boolean(point);
+        return Boolean(point) && eligiblePoints.some(eligiblePoint => eligiblePoint.id === point.id);
     });
 
     if (eligiblePoints.length === 0 || eligibleExamples.length === 0) {
-        alert("所選條件內沒有可用的文法題。"); return;
+        alert(grammarScope === 'favorites' ? "目前沒有可用的文法收藏題。" : "所選條件內沒有可用的文法題。"); return;
     }
 
     practiceQueue = [];
@@ -1219,7 +1355,15 @@ function isPlausibleAlternativeForExample(correctPoint, candidatePoint, example)
         ...buildAmbiguousPairs(['〜ずとも', '〜ことなしに', '〜なしに']),
         ...buildAmbiguousPairs(['〜いかん', '〜にかかっている']),
         ...buildAmbiguousPairs(['〜ばそれまでだ', '〜たら最後', '〜が最後', '〜ようものなら']),
-        ...buildAmbiguousPairs(['〜とあっては', '〜とあれば', '〜からには', '〜以上は'])
+        ...buildAmbiguousPairs(['〜とあっては', '〜とあれば', '〜からには', '〜以上は']),
+        ...buildAmbiguousPairs(['〜ながらも', '〜ものの', '〜とはいえ', '〜にもかかわらず']),
+        ...buildAmbiguousPairs(['〜あげく', '〜末に', '〜果てに']),
+        ...buildAmbiguousPairs(['〜みたいなところがある', '〜きらいがある', '〜ふしがある']),
+        ...buildAmbiguousPairs(['〜やら〜やら', '〜だの〜だの', '〜たり〜たり', '〜とか〜とか']),
+        ...buildAmbiguousPairs(['〜なり〜なり', '〜とか〜とか', '〜にしても〜にしても']),
+        ...buildAmbiguousPairs(['〜だろうか〜だろうか', '〜か〜か']),
+        ...buildAmbiguousPairs(['〜というか〜というか', '〜といおうか', '〜とでもいうか']),
+        ...buildAmbiguousPairs(['〜にしても〜にしても', '〜といい〜といい', '〜といわず〜といわず'])
     ]);
     if (sameMeaningSameSlot.has(pairKey)) return true;
 
@@ -1508,7 +1652,7 @@ function endGrammarPractice() {
     const total = practiceQueue.length;
     const rate = Math.round((score / total) * 100);
     document.getElementById('score-display').innerText = `正解率: ${rate}% (${score}/${total})`;
-    document.getElementById('result-list-title').innerText = '錯誤文法整理';
+    document.getElementById('result-list-title').innerText = '錯誤文法整理 (勾選加入文法收藏)';
 
     const list = document.getElementById('result-list');
     list.innerHTML = '';
@@ -1518,36 +1662,59 @@ function endGrammarPractice() {
         return;
     }
 
+    const mistakePointMap = new Map();
     practiceQueue.forEach(qData => {
         const key = qData.example ? qData.example.id : qData.point.id;
         if (!mistakes.has(key)) return;
+        if (!mistakePointMap.has(qData.point.id)) {
+            mistakePointMap.set(qData.point.id, { point: qData.point, examples: [] });
+        }
+        if (qData.example) mistakePointMap.get(qData.point.id).examples.push(qData.example);
+    });
 
+    mistakePointMap.forEach(({ point, examples }) => {
         const div = document.createElement('div');
         div.className = 'list-item';
+        const isFav = grammarFavIds.has(point.id) ? 'checked' : '';
+        const example = examples[0];
         div.innerHTML = `
             <span>
-                [${escapeHtml(qData.point.category)}] ${escapeHtml(qData.point.pattern)} - ${escapeHtml(qData.point.zh)}
-                ${qData.example ? `<br><span style="color:#aaa;">${escapeHtml(qData.example.sentence)}｜${escapeHtml(qData.example.zh)}</span>` : ''}
+                [${escapeHtml(point.category)}] ${escapeHtml(point.pattern)} - ${escapeHtml(point.zh)}
+                ${example ? `<br><span style="color:#aaa;">${escapeHtml(example.sentence)}｜${escapeHtml(example.zh)}</span>` : ''}
             </span>
+            <input type="checkbox" class="result-grammar-fav-cb" value="${escapeHtml(point.id)}" ${isFav}>
         `;
         list.appendChild(div);
     });
 }
 
 function saveResultFavoritesAndReturn() {
-    const checkboxes = document.querySelectorAll('.result-fav-cb');
-    checkboxes.forEach(cb => {
-        if (cb.checked) {
-            favIds.add(parseInt(cb.value));
-        } else {
-            favIds.delete(parseInt(cb.value));
-        }
-    });
-    saveFavs();
+    if (activePracticeMode === 'grammar') {
+        const checkboxes = document.querySelectorAll('.result-grammar-fav-cb');
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                grammarFavIds.add(cb.value);
+            } else {
+                grammarFavIds.delete(cb.value);
+            }
+        });
+        saveGrammarFavs();
+    } else {
+        const checkboxes = document.querySelectorAll('.result-fav-cb');
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                favIds.add(parseInt(cb.value));
+            } else {
+                favIds.delete(parseInt(cb.value));
+            }
+        });
+        saveFavs();
+    }
 
     // Reset Header Buttons
     document.getElementById('btn-open-fav').classList.remove('hidden');
     document.getElementById('btn-unfamiliar').classList.add('hidden');
+    updateFavoriteButtonLabel();
 
     document.getElementById('result-area').classList.add('hidden');
     document.getElementById('main-menu').classList.remove('hidden');
