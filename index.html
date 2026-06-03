@@ -292,7 +292,10 @@
 
             <div class="section-box">
                 <div class="section-title">文法題型</div>
-                <div class="source-status">例句填空</div>
+                <div class="checkbox-group" id="grammar-kind-checks">
+                    <label class="checkbox-item"><input type="checkbox" value="standard" checked> 一般文法</label>
+                    <label class="checkbox-item"><input type="checkbox" value="split" checked> 呼應文法</label>
+                </div>
             </div>
 
             <div class="section-box">
@@ -406,7 +409,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-06-03-mode-switch-pwa-refresh';
+const APP_VERSION = '2026-06-03-grammar-kind-filter';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -1119,9 +1122,13 @@ async function startGrammarPractice() {
     applyModeTheme();
     const reqQCount = parseInt(document.getElementById('grammar-question-count').value);
     const grammarScope = document.querySelector('input[name="grammar-scope"]:checked')?.value || 'all';
+    const selectedGrammarKinds = [...document.querySelectorAll('#grammar-kind-checks input:checked')].map(input => input.value);
 
     if (isNaN(reqQCount)) {
         alert("題目數量必須為數字。"); return;
+    }
+    if (selectedGrammarKinds.length === 0) {
+        alert("文法題型至少需勾選一項。"); return;
     }
     if (grammarLoadPromise) {
         await grammarLoadPromise;
@@ -1137,10 +1144,16 @@ async function startGrammarPractice() {
         : grammarPoints;
     const eligibleExamples = grammarExamples.filter(example => {
         const point = pointMap.get(example.grammarId);
-        return Boolean(point) && eligiblePoints.some(eligiblePoint => eligiblePoint.id === point.id);
+        return Boolean(point)
+            && eligiblePoints.some(eligiblePoint => eligiblePoint.id === point.id)
+            && selectedGrammarKinds.includes(getGrammarQuestionKind(point, example));
+    });
+    const buildableExamples = eligibleExamples.filter(example => {
+        const point = pointMap.get(example.grammarId);
+        return getGrammarDistractors(point, eligiblePoints, 3, example).length >= 3;
     });
 
-    if (eligiblePoints.length === 0 || eligibleExamples.length === 0) {
+    if (eligiblePoints.length === 0 || eligibleExamples.length === 0 || buildableExamples.length === 0) {
         alert(grammarScope === 'favorites' ? "目前沒有可用的文法收藏題。" : "所選條件內沒有可用的文法題。"); return;
     }
 
@@ -1151,12 +1164,12 @@ async function startGrammarPractice() {
     currentQuestionSettled = false;
     resultTotalOverride = null;
 
-    let examplesPool = [...eligibleExamples];
+    let examplesPool = [...buildableExamples];
     shuffleArray(examplesPool);
 
     for (let i = 0; i < reqQCount; i++) {
         if (examplesPool.length === 0) {
-            examplesPool = [...eligibleExamples];
+            examplesPool = [...buildableExamples];
             shuffleArray(examplesPool);
         }
 
@@ -1345,6 +1358,10 @@ function getGrammarPointMap() {
     return new Map(grammarPoints.map(point => [point.id, point]));
 }
 
+function getGrammarQuestionKind(point, example) {
+    return isSplitGrammarQuestion(point, example) ? 'split' : 'standard';
+}
+
 function buildGrammarQuestion(point, example, pool) {
     const distractors = getGrammarDistractors(point, pool, 3, example);
     const options = [
@@ -1361,9 +1378,12 @@ function buildGrammarQuestion(point, example, pool) {
 
 function getGrammarDistractors(correctPoint, pool, count, example = null) {
     const selected = [];
+    const correctLabel = String(example && example.answer || cleanGrammarPattern(correctPoint.pattern));
     const addPoint = point => {
         if (!point || point.id === correctPoint.id || selected.some(item => item.id === point.id)) return;
         if (!matchesGrammarOptionShape(correctPoint, point, example)) return;
+        const optionLabel = formatGrammarOptionLabel(point, example);
+        if (!optionLabel || optionLabel === correctLabel || selected.some(item => formatGrammarOptionLabel(item, example) === optionLabel)) return;
         if (isPlausibleAlternativeForExample(correctPoint, point, example)) return;
         selected.push(point);
     };
@@ -1376,7 +1396,7 @@ function getGrammarDistractors(correctPoint, pool, count, example = null) {
     shuffleArray(sameCategory);
     sameCategory.forEach(addPoint);
 
-    const fallback = grammarPoints.filter(point => pool.some(poolPoint => poolPoint.id === point.id));
+    const fallback = grammarPoints.filter(point => !selected.some(selectedPoint => selectedPoint.id === point.id));
     shuffleArray(fallback);
     fallback.forEach(addPoint);
 
@@ -1414,6 +1434,7 @@ function isPlausibleAlternativeForExample(correctPoint, candidatePoint, example)
         ...buildAmbiguousPairs(['〜にしても〜にしても', '〜といい〜といい', '〜といわず〜といわず'])
     ]);
     if (sameMeaningSameSlot.has(pairKey)) return true;
+    if (hasSameGrammarMeaning(correctPoint, candidatePoint) && hasComparableConnection(correctPoint, candidatePoint)) return true;
 
     if (['〜からには', '〜以上は', '〜うえは', '〜とあれば'].includes(correctPoint.pattern)
         && ['〜からには', '〜以上は', '〜うえは', '〜とあれば'].includes(candidatePoint.pattern)
@@ -1453,6 +1474,32 @@ function buildAmbiguousPairs(patterns) {
     return pairs;
 }
 
+function normalizeGrammarMeaning(text) {
+    return String(text || '')
+        .replace(/[.。…；;，,、\s]/g, '')
+        .replace(/\.\.\./g, '')
+        .trim();
+}
+
+function hasSameGrammarMeaning(pointA, pointB) {
+    const meaningA = normalizeGrammarMeaning(pointA.zh);
+    const meaningB = normalizeGrammarMeaning(pointB.zh);
+    return meaningA && meaningA === meaningB;
+}
+
+function normalizeConnection(text) {
+    return String(text || '').replace(/\s/g, '');
+}
+
+function hasComparableConnection(pointA, pointB) {
+    const connectionA = normalizeConnection(pointA.connection);
+    const connectionB = normalizeConnection(pointB.connection);
+    if (!connectionA || !connectionB) return false;
+    if (connectionA === connectionB) return true;
+    const markers = ['普通形', 'V辞書形', 'Vた形', 'Vます形', 'Vない形', 'N', 'いA', 'なA'];
+    return markers.some(marker => connectionA.includes(marker) && connectionB.includes(marker));
+}
+
 function cleanGrammarPattern(pattern) {
     return String(pattern || '').replace(/^〜/, '');
 }
@@ -1486,8 +1533,12 @@ function isSplitOptionPoint(point, example = null) {
     return SPLIT_OPTION_PATTERNS.has(point.pattern);
 }
 
+function isSplitGrammarQuestion(point, example) {
+    return hasSplitGrammarAnswer(example) || isSplitOptionPoint(point, example);
+}
+
 function matchesGrammarOptionShape(correctPoint, candidatePoint, example) {
-    const isSplitQuestion = hasSplitGrammarAnswer(example) || isSplitOptionPoint(correctPoint, example);
+    const isSplitQuestion = isSplitGrammarQuestion(correctPoint, example);
     return isSplitQuestion === isSplitOptionPoint(candidatePoint, example);
 }
 
@@ -1522,7 +1573,6 @@ function renderGrammarQuestion() {
 
     const questionText = `
         <div style="font-size: 1.35rem; line-height: 1.55;">${escapeHtml(qData.example.blankQuestion)}</div>
-        <div style="font-size: 0.9rem; color:#9ab7c5; margin-top: 8px;">例句填空</div>
     `;
     document.getElementById('question-text').innerHTML = questionText;
 
