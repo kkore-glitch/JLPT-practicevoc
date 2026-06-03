@@ -181,6 +181,7 @@
         <button id="btn-unfamiliar" class="header-btn-left hidden" onclick="markUnfamiliar()">我不熟</button>
         <h1>日檢自修室</h1>
         <button id="btn-open-fav" class="header-btn-right" onclick="openFavorites()">收藏清單</button>
+        <button id="btn-finish-now" class="header-btn-right hidden" onclick="finishPracticeNow()">立即結算</button>
     </header>
 
     <!-- Main Menu -->
@@ -287,7 +288,6 @@
         </div>
 
         <button id="btn-next" class="btn btn-accent hidden" style="margin-top: 20px;" onclick="nextQuestion()">下一題</button>
-        <button id="btn-finish-now" class="btn" style="margin-top: 10px;" onclick="finishPracticeNow()">立即結算</button>
     </main>
 
     <!-- Result Area -->
@@ -372,7 +372,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-06-03-finish-and-split-options';
+const APP_VERSION = '2026-06-03-grammar-unfamiliar-finish-top';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -1070,6 +1070,7 @@ function startPractice() {
     // Toggle Header Buttons
     document.getElementById('btn-open-fav').classList.add('hidden');
     document.getElementById('btn-unfamiliar').classList.remove('hidden');
+    document.getElementById('btn-finish-now').classList.remove('hidden');
 
     document.getElementById('main-menu').classList.add('hidden');
     document.getElementById('practice-area').classList.remove('hidden');
@@ -1131,7 +1132,8 @@ async function startGrammarPractice() {
     }
 
     document.getElementById('btn-open-fav').classList.add('hidden');
-    document.getElementById('btn-unfamiliar').classList.add('hidden');
+    document.getElementById('btn-unfamiliar').classList.remove('hidden');
+    document.getElementById('btn-finish-now').classList.remove('hidden');
 
     document.getElementById('main-menu').classList.add('hidden');
     document.getElementById('practice-area').classList.remove('hidden');
@@ -1477,6 +1479,7 @@ function renderGrammarQuestion() {
     document.getElementById('options-area').classList.remove('hidden');
     document.getElementById('btn-next').classList.add('hidden');
     document.getElementById('progress-bar').innerText = `剩餘 ${practiceQueue.length - currentQIndex} 題`;
+    updateUnfamiliarButtonState();
 
     const pArea = document.getElementById('practice-area');
     pArea.classList.remove('fade');
@@ -1669,11 +1672,28 @@ function handleTimeout() {
 
 function markUnfamiliar() {
     if (!currentQuestionData) return;
-    if (activePracticeMode !== 'vocab') return;
-    mistakes.add(currentQuestionData.card.id);
+    const key = activePracticeMode === 'grammar'
+        ? (currentQuestionData.example ? currentQuestionData.example.id : currentQuestionData.point.id)
+        : currentQuestionData.card.id;
+    mistakes.add(key);
     let btn = document.getElementById('btn-unfamiliar');
     btn.innerText = "已記錄";
     btn.style.backgroundColor = "#b22222";
+}
+
+function updateUnfamiliarButtonState() {
+    const btn = document.getElementById('btn-unfamiliar');
+    if (!btn || !currentQuestionData) return;
+    const key = activePracticeMode === 'grammar'
+        ? (currentQuestionData.example ? currentQuestionData.example.id : currentQuestionData.point.id)
+        : currentQuestionData.card.id;
+    if (mistakes.has(key)) {
+        btn.innerText = "已記錄";
+        btn.style.backgroundColor = "#b22222";
+    } else {
+        btn.innerText = "我不熟";
+        btn.style.backgroundColor = "var(--btn-bg)";
+    }
 }
 
 function nextQuestion() {
@@ -1699,6 +1719,7 @@ function endPractice() {
     document.getElementById('practice-area').classList.add('hidden');
     document.getElementById('result-area').classList.remove('hidden');
     document.getElementById('result-area').classList.add('fade');
+    document.getElementById('btn-finish-now').classList.add('hidden');
 
     let total = getResultTotal();
     document.getElementById('score-display').innerText = formatScoreResult(total);
@@ -1735,6 +1756,7 @@ function endGrammarPractice() {
     document.getElementById('practice-area').classList.add('hidden');
     document.getElementById('result-area').classList.remove('hidden');
     document.getElementById('result-area').classList.add('fade');
+    document.getElementById('btn-finish-now').classList.add('hidden');
 
     const total = getResultTotal();
     document.getElementById('score-display').innerText = formatScoreResult(total);
@@ -1805,6 +1827,7 @@ function saveResultFavoritesAndReturn() {
     // Reset Header Buttons
     document.getElementById('btn-open-fav').classList.remove('hidden');
     document.getElementById('btn-unfamiliar').classList.add('hidden');
+    document.getElementById('btn-finish-now').classList.add('hidden');
     updateFavoriteButtonLabel();
 
     document.getElementById('result-area').classList.add('hidden');
