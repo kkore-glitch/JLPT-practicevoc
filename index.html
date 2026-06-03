@@ -99,6 +99,43 @@
 
         .section-title { font-size: 0.9rem; margin-bottom: 8px; font-weight: bold; border-bottom: 1px dashed var(--border-color); padding-bottom: 4px;}
 
+        .mode-switch {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 2px auto 18px;
+        }
+        .mode-switch-item {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 128px;
+            min-height: 48px;
+            border: 1px solid rgba(70, 130, 180, 0.85);
+            border-radius: 999px;
+            background: rgba(26, 42, 58, 0.42);
+            color: #b9ddea;
+            font-size: 1.08rem;
+            font-weight: 800;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        .mode-switch-item input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .mode-switch-item:active { transform: translateY(1px); }
+        .mode-switch-item:has(input:checked) {
+            background: rgba(255, 150, 76, 0.2);
+            border-color: rgba(255, 177, 94, 0.95);
+            color: #ffd8aa;
+            box-shadow: 0 0 0 1px rgba(255, 177, 94, 0.2), 0 0 20px rgba(255, 137, 64, 0.24);
+        }
+
         .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
         .checkbox-item {
             position: relative; display: inline-flex; align-items: center; justify-content: center;
@@ -186,12 +223,9 @@
 
     <!-- Main Menu -->
     <main id="main-menu" class="fade">
-        <div class="section-box">
-            <div class="section-title">練習模式</div>
-            <div class="checkbox-group">
-                <label class="checkbox-item"><input type="radio" name="practice-mode" value="vocab" checked onchange="setPracticeMode('vocab')"> 單字</label>
-                <label class="checkbox-item"><input type="radio" name="practice-mode" value="grammar" onchange="setPracticeMode('grammar')"> 文法</label>
-            </div>
+        <div class="mode-switch" aria-label="練習模式">
+            <label class="mode-switch-item"><input type="radio" name="practice-mode" value="vocab" checked onchange="setPracticeMode('vocab')"> <span>單字</span></label>
+            <label class="mode-switch-item"><input type="radio" name="practice-mode" value="grammar" onchange="setPracticeMode('grammar')"> <span>文法</span></label>
         </div>
 
         <div id="vocab-menu">
@@ -372,7 +406,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-06-03-grammar-unfamiliar-finish-top';
+const APP_VERSION = '2026-06-03-mode-switch-pwa-refresh';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -1879,8 +1913,24 @@ document.getElementById('edit-category').addEventListener('change', updateEditPo
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            refreshing = true;
+            window.location.reload();
+        });
+
         navigator.serviceWorker.register(`service-worker.js?v=${encodeURIComponent(APP_VERSION)}`)
             .then(registration => {
+                registration.addEventListener('updatefound', () => {
+                    const worker = registration.installing;
+                    if (!worker) return;
+                    worker.addEventListener('statechange', () => {
+                        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                            worker.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                    });
+                });
                 registration.update();
                 if (registration.waiting) {
                     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
