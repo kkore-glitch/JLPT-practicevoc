@@ -275,6 +275,7 @@
                     <label class="checkbox-item"><input type="checkbox" value="動詞" checked> 動詞</label>
                     <label class="checkbox-item"><input type="checkbox" value="形容詞" checked> 形容詞</label>
                     <label class="checkbox-item"><input type="checkbox" value="副詞" checked> 副詞</label>
+                    <label class="checkbox-item"><input type="checkbox" value="擬聲擬態語" checked> 擬聲擬態語</label>
                 </div>
             </div>
 
@@ -392,7 +393,7 @@
         <div class="form-group"><label>日文名稱 (無漢字留空)</label><input type="text" id="edit-kanji"></div>
         <div class="form-group"><label>日文拼音 (必填)</label><input type="text" id="edit-kana"></div>
         <div class="form-group"><label>類別 (必填)</label><select id="edit-category"><option value="單字">單字</option><option value="語彙">語彙</option></select></div>
-        <div class="form-group"><label>詞性 (單字適用)</label><select id="edit-pos"><option value="">語彙不分類</option><option value="名詞">名詞</option><option value="動詞">動詞</option><option value="形容詞">形容詞</option><option value="副詞">副詞</option></select></div>
+        <div class="form-group"><label>詞性 (單字適用)</label><select id="edit-pos"><option value="">語彙不分類</option><option value="名詞">名詞</option><option value="動詞">動詞</option><option value="形容詞">形容詞</option><option value="副詞">副詞</option><option value="擬聲擬態語">擬聲擬態語</option></select></div>
         <div class="form-group"><label>中文意思 (必填)</label><input type="text" id="edit-zh"></div>
         
         <div style="display: flex; justify-content: space-between; margin-top: 20px;">
@@ -403,7 +404,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-06-06-review-level';
+const APP_VERSION = '2026-06-15-onomatopoeia-pos';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -438,7 +439,7 @@ let browseList = [];
 let browseIndex = 0;
 
 // --- Initialization ---
-const PARTS_OF_SPEECH = ['名詞', '動詞', '形容詞', '副詞'];
+const PARTS_OF_SPEECH = ['名詞', '動詞', '形容詞', '副詞', '擬聲擬態語'];
 let defaultPartOfSpeechLookup = null;
 
 async function init() {
@@ -619,7 +620,8 @@ function normalizePartOfSpeech(value) {
         '名詞': '名詞', 'noun': '名詞', 'n': '名詞',
         '動詞': '動詞', 'verb': '動詞', 'v': '動詞',
         '形容詞': '形容詞', 'い形容詞': '形容詞', 'な形容詞': '形容詞', 'adjective': '形容詞', 'adj': '形容詞',
-        '副詞': '副詞', 'adverb': '副詞', 'adv': '副詞'
+        '副詞': '副詞', 'adverb': '副詞', 'adv': '副詞',
+        '擬聲擬態語': '擬聲擬態語', '擬聲體態語': '擬聲擬態語', 'onomatopoeia': '擬聲擬態語'
     };
     return map[String(value || '').trim().toLowerCase()] || '';
 }
