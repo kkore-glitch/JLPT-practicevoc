@@ -162,7 +162,16 @@
         .source-status {
             margin-top: 8px; color: #9ab7c5; font-size: 0.78rem; line-height: 1.45;
         }
-        
+        .subtle-meta {
+            margin-top: 8px; color: #91a9b4; font-size: 0.78rem; line-height: 1.45;
+        }
+        .subtle-action {
+            display: inline-block; width: auto; margin-top: 10px; margin-bottom: 0; padding: 7px 10px;
+            background: transparent; color: #9ab7c5; border: 1px solid rgba(154, 183, 197, 0.45);
+            border-radius: 6px; font-size: 0.78rem;
+        }
+        .subtle-action:active { background: rgba(154, 183, 197, 0.12); }
+
         .btn {
             display: block; width: 100%; padding: 12px; background: var(--btn-bg); color: var(--text-color);
             border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; margin-bottom: 10px; cursor: pointer; text-align: center;
@@ -255,6 +264,9 @@
                     <span>題目數量</span>
                     <input type="number" id="question-count" value="20" min="1" max="999">
                 </div>
+                <div class="checkbox-group" id="vocab-priority-checks">
+                    <label class="checkbox-item"><input type="checkbox" id="weighted-vocab-mode" value="weighted"> 加強錯題與新字</label>
+                </div>
                 <input type="hidden" id="pool-size" value="105">
                 <span id="pool-label" class="hidden">MAX</span>
                 <div id="source-status" class="source-status">題庫載入中...</div>
@@ -302,6 +314,7 @@
             </div>
 
             <button class="btn btn-accent" id="btn-start-grammar">開始文法練習</button>
+            <button class="btn" style="font-size: 0.9rem;" onclick="openFlaggedGrammarExamples()">查看注記題目</button>
         </div>
     </main>
 
@@ -402,9 +415,20 @@
         </div>
     </dialog>
 
+    <!-- Flagged Grammar Modal -->
+    <dialog id="flagged-grammar-modal">
+        <div class="dialog-header">
+            <strong>文法注記題目</strong>
+            <button onclick="document.getElementById('flagged-grammar-modal').close()" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">關閉</button>
+        </div>
+        <div id="flagged-grammar-list" style="margin-bottom: 15px; max-height: 55vh; overflow-y: auto;"></div>
+        <button class="btn" onclick="copyFlaggedGrammarExamples()">複製注記內容</button>
+        <button class="btn" style="background-color: #8b0000;" onclick="clearFlaggedGrammarExamples()">清除注記</button>
+    </dialog>
+
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-06-15-onomatopoeia-pos';
+const APP_VERSION = '2026-07-13-review-stats';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -424,6 +448,8 @@ let grammarExamples = [];
 let activePracticeMode = 'vocab';
 let favIds = new Set(JSON.parse(localStorage.getItem('jp_favs') || '[]'));
 let grammarFavIds = new Set(JSON.parse(localStorage.getItem('jp_grammar_favs') || '[]'));
+let vocabStats = loadStoredObject('jp_vocab_stats');
+let flaggedGrammarExamples = loadStoredObject('jp_flagged_grammar_examples');
 let practiceQueue = [];
 let currentQIndex = 0;
 let score = 0;
@@ -455,6 +481,8 @@ async function init() {
     } else {
         parseCSV(defaultCSV, true);
     }
+    migrateFavoriteStorage();
+    pruneVocabStats();
     updateSourceStatus();
     await grammarLoadPromise;
     updateGrammarSourceStatus();
@@ -497,7 +525,8 @@ function updateSourceStatus() {
         hour: '2-digit',
         minute: '2-digit'
     }) : '尚未載入';
-    status.innerText = `題庫來源：${defaultCSVSource || '未知'}｜${db.length} 筆｜更新時間：${time}`;
+    const statCount = Object.keys(vocabStats).length;
+    status.innerText = `題庫來源：${defaultCSVSource || '未知'}｜${db.length} 筆｜更新時間：${time}｜作答紀錄 ${statCount} 張`;
 }
 
 async function loadGrammarCSVs() {
@@ -570,17 +599,20 @@ function parseGrammarExamples(csvText) {
     if (lines.length === 0) return [];
     const headers = parseCSVLine(lines[0]);
     const indexOf = name => headers.findIndex(header => header === name);
+    const idIndex = headers.findIndex(header => ['example_id', 'id', '例句ID'].includes(header));
 
     return lines.slice(1).map((line, index) => {
         const parts = parseCSVLine(line);
-        return {
-            id: `GE${String(index + 1).padStart(4, '0')}`,
+        const example = {
+            id: parts[idIndex] || '',
             grammarId: parts[indexOf('grammar_id')] || '',
             sentence: parts[indexOf('例句')] || '',
             blankQuestion: parts[indexOf('空格題目')] || '',
             answer: parts[indexOf('正解')] || '',
             zh: parts[indexOf('中文翻譯')] || ''
         };
+        example.id = example.id || buildGrammarExampleKey(example);
+        return example;
     }).filter(example => example.grammarId && example.sentence && example.answer);
 }
 
@@ -661,11 +693,38 @@ function normalizeCard(card) {
     normalized.partOfSpeech = normalized.category === '語彙'
         ? ''
         : normalizePartOfSpeech(card.partOfSpeech || card.pos || card.詞性) || inferPartOfSpeech(card);
+    normalized.key = buildCardKey(normalized);
     return normalized;
 }
 
 function formatCardMeta(card) {
     return card.category === '語彙' ? card.category : `${card.category} / ${card.partOfSpeech || '未分類'}`;
+}
+
+function buildCardKey(card) {
+    return [
+        'card-v2',
+        card.level,
+        card.category,
+        card.partOfSpeech,
+        card.kanji,
+        card.kana,
+        card.zh
+    ].map(value => String(value || '').trim()).join('|');
+}
+
+function getCardKey(card) {
+    if (!card.key) card.key = buildCardKey(card);
+    return card.key;
+}
+
+function buildGrammarExampleKey(example) {
+    return [
+        'grammar-example-v1',
+        example.grammarId,
+        example.sentence,
+        example.answer
+    ].map(value => String(value || '').trim()).join('|');
 }
 
 function parseCSVLine(line) {
@@ -729,6 +788,86 @@ function saveFavs() {
 }
 function saveGrammarFavs() {
     localStorage.setItem('jp_grammar_favs', JSON.stringify([...grammarFavIds]));
+}
+
+function loadStoredObject(key) {
+    try {
+        const value = JSON.parse(localStorage.getItem(key) || '{}');
+        return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    } catch (error) {
+        console.warn(`Failed to load ${key}`, error);
+        return {};
+    }
+}
+
+function migrateFavoriteStorage() {
+    let changed = false;
+    const migrated = new Set();
+    favIds.forEach(value => {
+        const matchingCard = db.find(card => String(card.id) === String(value));
+        if (matchingCard) {
+            migrated.add(getCardKey(matchingCard));
+            changed = true;
+        } else if (typeof value === 'string' && value.startsWith('card-v2|')) {
+            migrated.add(value);
+        }
+    });
+    if (changed || migrated.size !== favIds.size) {
+        favIds = migrated;
+        saveFavs();
+    }
+}
+
+function isCardFavorite(card) {
+    return favIds.has(getCardKey(card));
+}
+
+function saveVocabStats() {
+    localStorage.setItem('jp_vocab_stats', JSON.stringify(vocabStats));
+}
+
+function pruneVocabStats() {
+    const keys = new Set(db.map(getCardKey));
+    let changed = false;
+    Object.keys(vocabStats).forEach(key => {
+        if (!keys.has(key)) {
+            delete vocabStats[key];
+            changed = true;
+        }
+    });
+    if (changed) saveVocabStats();
+}
+
+function getCardStats(card) {
+    const key = getCardKey(card);
+    const stats = vocabStats[key] || { seen: 0, correct: 0, wrong: 0, lastSeen: 0 };
+    stats.seen = Number(stats.seen) || 0;
+    stats.correct = Number(stats.correct) || 0;
+    stats.wrong = Number(stats.wrong) || 0;
+    stats.lastSeen = Number(stats.lastSeen) || 0;
+    return stats;
+}
+
+function recordVocabAnswer(card, isCorrect) {
+    const key = getCardKey(card);
+    const stats = getCardStats(card);
+    stats.seen += 1;
+    if (isCorrect) {
+        stats.correct += 1;
+    } else {
+        stats.wrong += 1;
+    }
+    stats.lastSeen = Date.now();
+    vocabStats[key] = stats;
+    saveVocabStats();
+    updateSourceStatus();
+}
+
+function formatVocabStats(card) {
+    const stats = getCardStats(card);
+    if (!stats.seen) return '作答紀錄：尚未作答';
+    const rate = Math.round((stats.correct / stats.seen) * 100);
+    return `作答紀錄：正解率 ${rate}%｜答對 ${stats.correct}｜錯 ${stats.wrong}`;
 }
 
 // --- UI Logic ---
@@ -856,7 +995,7 @@ function openFavorites() {
     document.getElementById('fav-browse-button').innerText = '瀏覽單字卡';
     const list = document.getElementById('fav-list');
     list.innerHTML = '';
-    let favCards = db.filter(c => favIds.has(c.id));
+    let favCards = db.filter(isCardFavorite);
     
     if (favCards.length === 0) {
         list.innerHTML = '<div style="text-align:center; padding: 20px;">尚無收藏</div>';
@@ -866,7 +1005,7 @@ function openFavorites() {
             div.className = 'list-item';
             div.innerHTML = `
                 <span>[${card.level} / ${formatCardMeta(card)}] ${card.kanji || card.kana} - ${card.zh}</span>
-                <input type="checkbox" class="fav-checkbox" value="${card.id}" checked>
+                <input type="checkbox" class="fav-checkbox" value="${escapeHtml(getCardKey(card))}" checked>
             `;
             list.appendChild(div);
         });
@@ -912,7 +1051,7 @@ function applyFavoritesChanges() {
     } else {
         checkboxes.forEach(cb => {
             if (!cb.checked) {
-                favIds.delete(parseInt(cb.value));
+                favIds.delete(cb.value);
             }
         });
         saveFavs();
@@ -926,7 +1065,7 @@ function startFavBrowse() {
         return;
     }
 
-    browseList = db.filter(c => favIds.has(c.id));
+    browseList = db.filter(isCardFavorite);
     if (browseList.length === 0) {
         alert("目前沒有已收藏的字卡可供瀏覽。");
         return;
@@ -964,6 +1103,7 @@ function renderBrowseCard() {
         <div style="font-size: 2.5rem; color: #fff; margin-bottom: 10px;">${card.kanji || card.kana}</div>
         ${card.kanji ? `<div style="font-size: 1.2rem; color: #aaa; margin-bottom: 10px;">${card.kana}</div>` : ''}
         <div style="font-size: 1.2rem; color: #87ceeb;">${card.zh}</div>
+        <div class="subtle-meta">${escapeHtml(formatVocabStats(card))}</div>
     `;
     document.getElementById('browse-content').innerHTML = html;
     
@@ -1026,6 +1166,7 @@ function startPractice() {
     const reqQCount = parseInt(document.getElementById('question-count').value);
     const poolSizeVal = parseInt(document.getElementById('pool-size').value);
     const poolMax = poolSizeVal > 100 ? 9999 : poolSizeVal;
+    const weightedMode = Boolean(document.getElementById('weighted-vocab-mode')?.checked);
 
     if (levels.length === 0 || types.length === 0 || categories.length === 0 || isNaN(reqQCount)) {
         alert("級別、題型、類別至少需勾選一項，且題目數量必須為數字。"); return;
@@ -1042,7 +1183,7 @@ function startPractice() {
     let pool = [];
     
     if (levels.includes("收藏")) {
-        let favCards = eligibleCards.filter(c => favIds.has(c.id));
+        let favCards = eligibleCards.filter(isCardFavorite);
         shuffleArray(favCards);
         pool.push(...favCards);
     }
@@ -1067,24 +1208,10 @@ function startPractice() {
     currentQuestionSettled = false;
     resultTotalOverride = null;
 
-    let cardSequence = [];
-    let tempPool = [...pool];
-    shuffleArray(tempPool);
+    const effectiveQCount = Math.min(reqQCount, pool.length);
+    let cardSequence = buildVocabSequence(pool, effectiveQCount, weightedMode);
 
-    while (cardSequence.length < reqQCount) {
-        if (tempPool.length === 0) {
-            tempPool = [...pool];
-            shuffleArray(tempPool);
-            if (cardSequence.length > 0 && tempPool.length > 1 && tempPool[0].id === cardSequence[cardSequence.length - 1].id) {
-                let temp = tempPool[0];
-                tempPool[0] = tempPool[1];
-                tempPool[1] = temp;
-            }
-        }
-        cardSequence.push(tempPool.pop());
-    }
-
-    for (let i = 0; i < reqQCount; i++) {
+    for (let i = 0; i < cardSequence.length; i++) {
         let card = cardSequence[i];
 
         let cardValidTypes = types.filter(t => {
@@ -1111,6 +1238,47 @@ function startPractice() {
     
     currentQIndex = 0;
     renderQuestion();
+}
+
+function buildVocabSequence(pool, count, weightedMode) {
+    const candidates = [...pool];
+    const sequence = [];
+
+    while (sequence.length < count && candidates.length > 0) {
+        const index = weightedMode ? pickWeightedCardIndex(candidates) : Math.floor(Math.random() * candidates.length);
+        sequence.push(candidates.splice(index, 1)[0]);
+    }
+
+    return sequence;
+}
+
+function pickWeightedCardIndex(cards) {
+    const weights = cards.map(getVocabSelectionWeight);
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    let target = Math.random() * total;
+    for (let i = 0; i < weights.length; i++) {
+        target -= weights[i];
+        if (target <= 0) return i;
+    }
+    return cards.length - 1;
+}
+
+function getVocabSelectionWeight(card) {
+    const stats = getCardStats(card);
+    if (!stats.seen) return 6;
+
+    const wrongRate = stats.wrong / stats.seen;
+    const correctRate = stats.correct / stats.seen;
+    const lowSeenBonus = Math.max(0, 3 - stats.seen) * 0.8;
+    let weight = 1 + wrongRate * 5 + lowSeenBonus;
+
+    if (stats.seen >= 5 && correctRate >= 0.85) {
+        weight *= 0.35;
+    } else if (stats.seen >= 3 && correctRate >= 0.7) {
+        weight *= 0.65;
+    }
+
+    return Math.max(0.25, weight);
 }
 
 async function startGrammarPractice() {
@@ -1286,7 +1454,7 @@ function renderQuestion() {
     
     // Set unfamiliar button state
     let unfamBtn = document.getElementById('btn-unfamiliar');
-    if (mistakes.has(card.id)) {
+    if (mistakes.has(getCardKey(card))) {
         unfamBtn.innerText = "已記錄";
         unfamBtn.style.backgroundColor = "#b22222";
     } else {
@@ -1620,11 +1788,101 @@ function showGrammarAnswerDetails(selectedPoint = null) {
         displayHtml += `
             <div style="font-size: 1rem; color: #87ceeb; margin-top: 12px; line-height: 1.5;">${escapeHtml(qData.example.sentence)}</div>
             <div style="font-size: 0.95rem; color: #aaa; margin-top: 5px; line-height: 1.45;">${escapeHtml(qData.example.zh)}</div>
+            <button class="subtle-action" onclick="toggleCurrentGrammarExampleFlag()">${isGrammarExampleFlagged(qData.example) ? '已注記此例句' : '注記此例句'}</button>
         `;
     }
 
     document.getElementById('question-text').innerHTML = displayHtml;
     document.getElementById('btn-next').classList.remove('hidden');
+}
+
+function isGrammarExampleFlagged(example) {
+    return Boolean(example && flaggedGrammarExamples[example.id]);
+}
+
+function saveFlaggedGrammarExamples() {
+    localStorage.setItem('jp_flagged_grammar_examples', JSON.stringify(flaggedGrammarExamples));
+}
+
+function toggleCurrentGrammarExampleFlag() {
+    if (!currentQuestionData || !currentQuestionData.example) return;
+    const { point, example } = currentQuestionData;
+    if (flaggedGrammarExamples[example.id]) {
+        delete flaggedGrammarExamples[example.id];
+    } else {
+        flaggedGrammarExamples[example.id] = {
+            id: example.id,
+            grammarId: example.grammarId,
+            pattern: point.pattern,
+            category: point.category,
+            sentence: example.sentence,
+            blankQuestion: example.blankQuestion,
+            answer: example.answer,
+            zh: example.zh,
+            createdAt: new Date().toISOString()
+        };
+    }
+    saveFlaggedGrammarExamples();
+    showGrammarAnswerDetails();
+}
+
+function openFlaggedGrammarExamples() {
+    const list = document.getElementById('flagged-grammar-list');
+    const entries = Object.values(flaggedGrammarExamples);
+    if (entries.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding: 20px;">尚無注記題目</div>';
+    } else {
+        list.innerHTML = entries.map(entry => `
+            <div class="list-item" style="align-items:flex-start; gap:10px;">
+                <span>
+                    [${escapeHtml(entry.grammarId)}] ${escapeHtml(entry.pattern || '')}
+                    <br><span style="color:#aaa;">${escapeHtml(entry.sentence || '')}</span>
+                    <br><span class="subtle-meta">正解：${escapeHtml(entry.answer || '')}｜${escapeHtml(entry.zh || '')}</span>
+                </span>
+                <button onclick="removeFlaggedGrammarExample('${encodeURIComponent(entry.id)}')" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">移除</button>
+            </div>
+        `).join('');
+    }
+    document.getElementById('flagged-grammar-modal').showModal();
+}
+
+function removeFlaggedGrammarExample(id) {
+    delete flaggedGrammarExamples[decodeURIComponent(id)];
+    saveFlaggedGrammarExamples();
+    openFlaggedGrammarExamples();
+}
+
+function formatFlaggedGrammarExamples() {
+    const entries = Object.values(flaggedGrammarExamples);
+    if (entries.length === 0) return '';
+    return entries.map((entry, index) => [
+        `${index + 1}. ${entry.grammarId} ${entry.pattern || ''}`,
+        `例句：${entry.sentence || ''}`,
+        `題目：${entry.blankQuestion || ''}`,
+        `正解：${entry.answer || ''}`,
+        `中文：${entry.zh || ''}`
+    ].join('\n')).join('\n\n');
+}
+
+async function copyFlaggedGrammarExamples() {
+    const text = formatFlaggedGrammarExamples();
+    if (!text) {
+        alert('尚無注記題目');
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(text);
+        alert('已複製注記內容');
+    } catch (error) {
+        window.prompt('請複製以下內容', text);
+    }
+}
+
+function clearFlaggedGrammarExamples() {
+    if (!confirm('確定清除所有文法注記嗎？')) return;
+    flaggedGrammarExamples = {};
+    saveFlaggedGrammarExamples();
+    openFlaggedGrammarExamples();
 }
 
 function startTimer() {
@@ -1674,6 +1932,7 @@ function showAnswerDetails() {
     displayHtml += `<div style="font-size: 1.2rem; color: #aaa; margin-top: 5px;">${card.kana}</div>`;
     displayHtml += `<div style="font-size: 0.95rem; color: #aaa; margin-top: 5px;">${formatCardMeta(card)}</div>`;
     displayHtml += `<div style="font-size: 1.2rem; color: #87ceeb; margin-top: 5px;">${card.zh}</div>`;
+    displayHtml += `<div class="subtle-meta">${escapeHtml(formatVocabStats(card))}</div>`;
     
     document.getElementById('question-text').innerHTML = displayHtml;
     document.getElementById('btn-next').classList.remove('hidden');
@@ -1689,11 +1948,12 @@ function handleChoice(btn, isCorrect, correctStr) {
         score++;
     } else {
         btn.classList.add('wrong');
-        mistakes.add(currentQuestionData.card.id);
+        mistakes.add(getCardKey(currentQuestionData.card));
         btns.forEach(b => {
             if (b.innerText === correctStr) b.classList.add('correct');
         });
     }
+    recordVocabAnswer(currentQuestionData.card, isCorrect && !currentQuestionData.forceReview);
     markQuestionSettled();
     showAnswerDetails();
 }
@@ -1712,8 +1972,9 @@ function checkManualAnswer() {
         score++;
     } else {
         manualInput.style.backgroundColor = varColor('--wrong-color');
-        mistakes.add(currentQuestionData.card.id);
+        mistakes.add(getCardKey(currentQuestionData.card));
     }
+    recordVocabAnswer(currentQuestionData.card, isCorrect && !currentQuestionData.forceReview);
     markQuestionSettled();
     showAnswerDetails();
 }
@@ -1733,7 +1994,8 @@ function handleTimeout() {
         return;
     }
 
-    mistakes.add(currentQuestionData.card.id);
+    mistakes.add(getCardKey(currentQuestionData.card));
+    recordVocabAnswer(currentQuestionData.card, false);
     markQuestionSettled();
     if (currentQuestionData.type !== 'manual') {
         let btns = document.querySelectorAll('.option-btn');
@@ -1754,7 +2016,8 @@ function markUnfamiliar() {
     if (!currentQuestionData) return;
     const key = activePracticeMode === 'grammar'
         ? (currentQuestionData.example ? currentQuestionData.example.id : currentQuestionData.point.id)
-        : currentQuestionData.card.id;
+        : getCardKey(currentQuestionData.card);
+    if (activePracticeMode === 'vocab') currentQuestionData.forceReview = true;
     mistakes.add(key);
     let btn = document.getElementById('btn-unfamiliar');
     btn.innerText = "已記錄";
@@ -1766,7 +2029,7 @@ function updateUnfamiliarButtonState() {
     if (!btn || !currentQuestionData) return;
     const key = activePracticeMode === 'grammar'
         ? (currentQuestionData.example ? currentQuestionData.example.id : currentQuestionData.point.id)
-        : currentQuestionData.card.id;
+        : getCardKey(currentQuestionData.card);
     if (mistakes.has(key)) {
         btn.innerText = "已記錄";
         btn.style.backgroundColor = "#b22222";
@@ -1817,14 +2080,14 @@ function endPractice() {
         list.innerHTML = '<div style="text-align:center;">無錯誤項目，完美！</div>';
     } else {
         mistakes.forEach(id => {
-            let card = db.find(c => c.id === id);
+            let card = db.find(c => getCardKey(c) === id);
             if(card) {
                 let div = document.createElement('div');
                 div.className = 'list-item';
-                let isFav = favIds.has(card.id) ? 'checked' : '';
+                let isFav = isCardFavorite(card) ? 'checked' : '';
                 div.innerHTML = `
-                    <span>[${card.level} / ${formatCardMeta(card)}] ${card.kanji || card.kana} - ${card.zh}</span>
-                    <input type="checkbox" class="result-fav-cb" value="${card.id}" ${isFav}>
+                    <span>[${card.level} / ${formatCardMeta(card)}] ${card.kanji || card.kana} - ${card.zh}<br><span class="subtle-meta">${escapeHtml(formatVocabStats(card))}</span></span>
+                    <input type="checkbox" class="result-fav-cb" value="${escapeHtml(getCardKey(card))}" ${isFav}>
                 `;
                 list.appendChild(div);
             }
@@ -1896,9 +2159,9 @@ function saveResultFavoritesAndReturn() {
         const checkboxes = document.querySelectorAll('.result-fav-cb');
         checkboxes.forEach(cb => {
             if (cb.checked) {
-                favIds.add(parseInt(cb.value));
+                favIds.add(cb.value);
             } else {
-                favIds.delete(parseInt(cb.value));
+                favIds.delete(cb.value);
             }
         });
         saveFavs();
