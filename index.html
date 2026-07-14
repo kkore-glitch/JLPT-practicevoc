@@ -428,7 +428,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-07-15-review-priority';
+const APP_VERSION = '2026-07-15-card-list-accuracy';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -870,6 +870,25 @@ function formatVocabStats(card) {
     return `作答紀錄：正解率 ${rate}%｜答對 ${stats.correct}｜錯 ${stats.wrong}`;
 }
 
+function getVocabAccuracySortValue(card) {
+    const stats = getCardStats(card);
+    if (!stats.seen) return -1;
+    return stats.correct / stats.seen;
+}
+
+function formatCardListTitle(card) {
+    const primary = card.kanji || card.kana;
+    const kana = card.kanji ? `（${card.kana}）` : '';
+    return `${primary}${kana} - ${card.zh}`;
+}
+
+function formatCardListAccuracy(card) {
+    const stats = getCardStats(card);
+    if (!stats.seen) return '正解率 --｜尚未作答';
+    const rate = Math.round((stats.correct / stats.seen) * 100);
+    return `正解率 ${rate}%｜答對 ${stats.correct}｜錯 ${stats.wrong}`;
+}
+
 // --- UI Logic ---
 function updatePoolLabel() {
     let val = document.getElementById('pool-size').value;
@@ -880,11 +899,16 @@ function updatePoolLabel() {
 function openCardManager() {
     const list = document.getElementById('all-cards-list');
     list.innerHTML = '';
-    db.forEach(card => {
+    const sortedCards = [...db].sort((a, b) => {
+        const rateDiff = getVocabAccuracySortValue(a) - getVocabAccuracySortValue(b);
+        if (rateDiff !== 0) return rateDiff;
+        return formatCardListTitle(a).localeCompare(formatCardListTitle(b), 'ja');
+    });
+    sortedCards.forEach(card => {
         let div = document.createElement('div');
         div.className = 'list-item';
         div.innerHTML = `
-            <span>[${card.level} / ${formatCardMeta(card)}] ${card.kanji || card.kana} ${card.zh}</span>
+            <span>${escapeHtml(formatCardListTitle(card))}<br><span class="subtle-meta">${escapeHtml(formatCardListAccuracy(card))}</span></span>
             <button onclick="openEditForm(${card.id})" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">編輯</button>
         `;
         list.appendChild(div);
