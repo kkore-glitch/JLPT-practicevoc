@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jlpt-practicevoc-v22';
+const CACHE_NAME = 'jlpt-practicevoc-v25';
 const APP_SHELL = [
   './',
   './index.html',

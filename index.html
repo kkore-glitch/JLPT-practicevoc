@@ -86,6 +86,27 @@
         }
         .header-btn-left { left: max(15px, env(safe-area-inset-left)); }
         .header-btn-right { right: max(15px, env(safe-area-inset-right)); }
+        .header-actions-left {
+            position: absolute;
+            left: max(15px, env(safe-area-inset-left));
+            bottom: 10px;
+            display: flex;
+            gap: 6px;
+            z-index: 10;
+        }
+        .header-actions-left button {
+            background: var(--btn-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 5px 9px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .header-actions-left button.is-active {
+            background: rgba(255, 150, 76, 0.24);
+            border-color: rgba(255, 177, 94, 0.95);
+            color: #ffd8aa;
+        }
 
         main { flex: 1; padding: 15px; max-width: 600px; margin: 0 auto; width: 100%; }
 
@@ -210,7 +231,14 @@
         }
         dialog::backdrop { background: rgba(0, 0, 0, 0.8); }
         .dialog-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px;}
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #333; font-size: 0.9rem;}
+        .list-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px dashed #333; font-size: 0.9rem;}
+        .list-item-main { flex: 1; min-width: 0; padding-right: 4px; }
+        .list-item-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; flex-shrink: 0; }
+        .list-item-actions button, .dialog-small-btn {
+            background: none; color: var(--text-color); border: 1px solid var(--border-color);
+            border-radius: 6px; padding: 5px 8px; font-size: 0.8rem;
+        }
+        .dialog-small-btn.is-active { background: rgba(154, 183, 197, 0.14); }
         
         /* Edit Form */
         .form-group { margin-bottom: 10px; }
@@ -223,7 +251,10 @@
 <body>
 
     <header>
-        <button id="btn-unfamiliar" class="header-btn-left hidden" onclick="markUnfamiliar()">我不熟</button>
+        <div id="practice-header-actions" class="header-actions-left hidden">
+            <button id="btn-unfamiliar" onclick="markUnfamiliar()">收藏</button>
+            <button id="btn-mastered" onclick="toggleCurrentCardMastered()">設為熟讀</button>
+        </div>
         <h1>日檢自修室</h1>
         <button id="btn-open-fav" class="header-btn-right" onclick="openFavorites()">收藏清單</button>
         <button id="btn-finish-now" class="header-btn-right hidden" onclick="finishPracticeNow()">立即結算</button>
@@ -381,7 +412,10 @@
     <dialog id="card-manager-modal">
         <div class="dialog-header">
             <strong>字卡清單</strong>
-            <button onclick="openEditForm()" style="background:var(--text-color); color:#000; border:none; padding:4px 8px; border-radius:4px;">新增字卡</button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button id="card-manager-filter-btn" class="dialog-small-btn" onclick="toggleCardManagerFilter()">只看已熟讀</button>
+                <button onclick="openEditForm()" style="background:var(--text-color); color:#000; border:none; padding:5px 8px; border-radius:6px;">新增字卡</button>
+            </div>
         </div>
 
         <div id="all-cards-list" style="margin-top:10px; max-height: 40vh; overflow-y: auto;"></div>
@@ -423,7 +457,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-07-16-card-list-cleanup';
+const APP_VERSION = '2026-07-16-mastered-toggle-label';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -444,6 +478,7 @@ let activePracticeMode = 'vocab';
 let favIds = new Set(JSON.parse(localStorage.getItem('jp_favs') || '[]'));
 let grammarFavIds = new Set(JSON.parse(localStorage.getItem('jp_grammar_favs') || '[]'));
 let vocabStats = loadStoredObject('jp_vocab_stats');
+let masteredCardKeys = new Set(JSON.parse(localStorage.getItem('jp_mastered_cards') || '[]'));
 let flaggedGrammarExamples = loadStoredObject('jp_flagged_grammar_examples');
 let practiceQueue = [];
 let currentQIndex = 0;
@@ -458,6 +493,7 @@ let resultTotalOverride = null;
 
 let browseList = [];
 let browseIndex = 0;
+let cardManagerFilter = 'all';
 
 // --- Initialization ---
 const PARTS_OF_SPEECH = ['名詞', '動詞', '形容詞', '副詞', '擬聲擬態語'];
@@ -477,7 +513,9 @@ async function init() {
         parseCSV(defaultCSV, true);
     }
     migrateFavoriteStorage();
+    migrateVocabKeyedStorage();
     pruneVocabStats();
+    pruneMasteredCards();
     updateSourceStatus();
     await grammarLoadPromise;
     updateGrammarSourceStatus();
@@ -521,7 +559,7 @@ function updateSourceStatus() {
         minute: '2-digit'
     }) : '尚未載入';
     const statCount = Object.keys(vocabStats).length;
-    status.innerText = `題庫來源：${defaultCSVSource || '未知'}｜${db.length} 筆｜更新時間：${time}｜作答紀錄 ${statCount} 張`;
+    status.innerText = `題庫來源：${defaultCSVSource || '未知'}｜${db.length} 筆｜更新時間：${time}｜作答紀錄 ${statCount} 張｜已熟讀 ${masteredCardKeys.size} 張`;
 }
 
 async function loadGrammarCSVs() {
@@ -698,6 +736,14 @@ function formatCardMeta(card) {
 
 function buildCardKey(card) {
     return [
+        'card-v3',
+        card.kanji,
+        card.kana
+    ].map(value => String(value || '').trim()).join('|');
+}
+
+function buildLegacyCardKey(card) {
+    return [
         'card-v2',
         card.level,
         card.category,
@@ -785,6 +831,10 @@ function saveGrammarFavs() {
     localStorage.setItem('jp_grammar_favs', JSON.stringify([...grammarFavIds]));
 }
 
+function saveMasteredCards() {
+    localStorage.setItem('jp_mastered_cards', JSON.stringify([...masteredCardKeys]));
+}
+
 function loadStoredObject(key) {
     try {
         const value = JSON.parse(localStorage.getItem(key) || '{}');
@@ -803,7 +853,7 @@ function migrateFavoriteStorage() {
         if (matchingCard) {
             migrated.add(getCardKey(matchingCard));
             changed = true;
-        } else if (typeof value === 'string' && value.startsWith('card-v2|')) {
+        } else if (typeof value === 'string' && value.startsWith('card-v')) {
             migrated.add(value);
         }
     });
@@ -813,8 +863,92 @@ function migrateFavoriteStorage() {
     }
 }
 
+function mergeVocabStatsRecords(target, source) {
+    const normalizedTarget = {
+        seen: Number(target?.seen) || 0,
+        correct: Number(target?.correct) || 0,
+        wrong: Number(target?.wrong) || 0,
+        lastSeen: Number(target?.lastSeen) || 0
+    };
+    const normalizedSource = {
+        seen: Number(source?.seen) || 0,
+        correct: Number(source?.correct) || 0,
+        wrong: Number(source?.wrong) || 0,
+        lastSeen: Number(source?.lastSeen) || 0
+    };
+    return {
+        seen: normalizedTarget.seen + normalizedSource.seen,
+        correct: normalizedTarget.correct + normalizedSource.correct,
+        wrong: normalizedTarget.wrong + normalizedSource.wrong,
+        lastSeen: Math.max(normalizedTarget.lastSeen, normalizedSource.lastSeen)
+    };
+}
+
+function migrateVocabKeyedStorage() {
+    let statsChanged = false;
+    let favChanged = false;
+    let masteredChanged = false;
+
+    db.forEach(card => {
+        const nextKey = getCardKey(card);
+        const legacyKey = buildLegacyCardKey(card);
+        if (legacyKey === nextKey) return;
+
+        if (vocabStats[legacyKey]) {
+            vocabStats[nextKey] = vocabStats[nextKey]
+                ? mergeVocabStatsRecords(vocabStats[nextKey], vocabStats[legacyKey])
+                : vocabStats[legacyKey];
+            delete vocabStats[legacyKey];
+            statsChanged = true;
+        }
+
+        if (favIds.has(legacyKey)) {
+            favIds.delete(legacyKey);
+            favIds.add(nextKey);
+            favChanged = true;
+        }
+
+        if (masteredCardKeys.has(legacyKey)) {
+            masteredCardKeys.delete(legacyKey);
+            masteredCardKeys.add(nextKey);
+            masteredChanged = true;
+        }
+    });
+
+    if (statsChanged) saveVocabStats();
+    if (favChanged) saveFavs();
+    if (masteredChanged) saveMasteredCards();
+}
+
 function isCardFavorite(card) {
     return favIds.has(getCardKey(card));
+}
+
+function isCardMastered(card) {
+    return masteredCardKeys.has(getCardKey(card));
+}
+
+function setCardMastered(card, mastered) {
+    const key = getCardKey(card);
+    if (mastered) {
+        masteredCardKeys.add(key);
+    } else {
+        masteredCardKeys.delete(key);
+    }
+    saveMasteredCards();
+    updateSourceStatus();
+}
+
+function pruneMasteredCards() {
+    const keys = new Set(db.map(getCardKey));
+    let changed = false;
+    [...masteredCardKeys].forEach(key => {
+        if (!keys.has(key)) {
+            masteredCardKeys.delete(key);
+            changed = true;
+        }
+    });
+    if (changed) saveMasteredCards();
 }
 
 function saveVocabStats() {
@@ -879,9 +1013,10 @@ function formatCardListTitle(card) {
 
 function formatCardListAccuracy(card) {
     const stats = getCardStats(card);
-    if (!stats.seen) return '正解率 --｜尚未作答';
+    const prefix = isCardMastered(card) ? '已熟讀｜' : '';
+    if (!stats.seen) return `${prefix}正解率 --｜尚未作答`;
     const rate = Math.round((stats.correct / stats.seen) * 100);
-    return `正解率 ${rate}%｜答對 ${stats.correct}｜錯 ${stats.wrong}`;
+    return `${prefix}正解率 ${rate}%｜答對 ${stats.correct}｜錯 ${stats.wrong}`;
 }
 
 // --- UI Logic ---
@@ -894,7 +1029,18 @@ function updatePoolLabel() {
 function openCardManager() {
     const list = document.getElementById('all-cards-list');
     list.innerHTML = '';
-    const sortedCards = [...db].sort((a, b) => {
+    const filterBtn = document.getElementById('card-manager-filter-btn');
+    if (filterBtn) {
+        filterBtn.innerText = cardManagerFilter === 'mastered' ? '顯示全部' : '只看已熟讀';
+        filterBtn.classList.toggle('is-active', cardManagerFilter === 'mastered');
+    }
+
+    const visibleCards = cardManagerFilter === 'mastered' ? db.filter(isCardMastered) : db;
+    if (visibleCards.length === 0) {
+        list.innerHTML = '<div class="subtle-meta">沒有符合條件的字卡。</div>';
+    }
+
+    const sortedCards = [...visibleCards].sort((a, b) => {
         const rateDiff = getVocabAccuracySortValue(a) - getVocabAccuracySortValue(b);
         if (rateDiff !== 0) return rateDiff;
         return formatCardListTitle(a).localeCompare(formatCardListTitle(b), 'ja');
@@ -902,14 +1048,31 @@ function openCardManager() {
     sortedCards.forEach(card => {
         let div = document.createElement('div');
         div.className = 'list-item';
+        const mastered = isCardMastered(card);
         div.innerHTML = `
-            <span>${escapeHtml(formatCardListTitle(card))}<br><span class="subtle-meta">${escapeHtml(formatCardListAccuracy(card))}</span></span>
-            <button onclick="openEditForm(${card.id})" style="background:none; color:var(--text-color); border:1px solid var(--border-color);">編輯</button>
+            <span class="list-item-main">${escapeHtml(formatCardListTitle(card))}<br><span class="subtle-meta">${escapeHtml(formatCardListAccuracy(card))}</span></span>
+            <span class="list-item-actions">
+                <button onclick="toggleMasteredByCardId(${card.id})">${mastered ? '取消熟讀' : '設為熟讀'}</button>
+                <button onclick="openEditForm(${card.id})">編輯</button>
+            </span>
         `;
         list.appendChild(div);
     });
-    
-    document.getElementById('card-manager-modal').showModal();
+
+    const modal = document.getElementById('card-manager-modal');
+    if (!modal.open) modal.showModal();
+}
+
+function toggleCardManagerFilter() {
+    cardManagerFilter = cardManagerFilter === 'mastered' ? 'all' : 'mastered';
+    openCardManager();
+}
+
+function toggleMasteredByCardId(id) {
+    const card = db.find(item => item.id === id);
+    if (!card) return;
+    setCardMastered(card, !isCardMastered(card));
+    openCardManager();
 }
 
 async function resetToDefault() {
@@ -918,6 +1081,7 @@ async function resetToDefault() {
         defaultCSV = '';
         await loadDefaultCSV();
         parseCSV(defaultCSV, true);
+        pruneMasteredCards();
         alert(`已重新載入題庫：${defaultCSVSource || '未知來源'}，共 ${db.length} 筆。`);
         openCardManager();
     }
@@ -1235,7 +1399,7 @@ function startPractice() {
 
     // Toggle Header Buttons
     document.getElementById('btn-open-fav').classList.add('hidden');
-    document.getElementById('btn-unfamiliar').classList.remove('hidden');
+    document.getElementById('practice-header-actions').classList.remove('hidden');
     document.getElementById('btn-finish-now').classList.remove('hidden');
 
     document.getElementById('main-menu').classList.add('hidden');
@@ -1249,21 +1413,20 @@ function startPractice() {
 function buildVocabSequence(pool, count, weightedMode) {
     if (!weightedMode) {
         const candidates = [...pool];
-        shuffleArray(candidates);
-        return candidates.slice(0, count);
+        return takeWeightedRandomCards(candidates, count, card => isCardMastered(card) ? 0.25 : 1);
     }
 
     const candidates = [...pool];
     const sequence = [];
 
-    takePriorityCards(candidates, sequence, count, card => getCardStats(card).seen === 0);
+    takePriorityCards(candidates, sequence, count, card => !isCardMastered(card) && getCardStats(card).seen === 0);
     takePriorityCards(candidates, sequence, count, card => {
         const stats = getCardStats(card);
-        return stats.seen > 0 && stats.correct === 0;
+        return !isCardMastered(card) && stats.seen > 0 && stats.correct === 0;
     });
 
     while (sequence.length < count && candidates.length > 0) {
-        const index = pickWeightedCardIndex(candidates);
+        const index = pickWeightedCardIndex(candidates, getVocabSelectionWeight);
         sequence.push(candidates.splice(index, 1)[0]);
     }
 
@@ -1286,8 +1449,18 @@ function takePriorityCards(candidates, sequence, count, predicate) {
     candidates.push(...priorityCards);
 }
 
-function pickWeightedCardIndex(cards) {
-    const weights = cards.map(getVocabSelectionWeight);
+function takeWeightedRandomCards(candidates, count, weightFn) {
+    const sequence = [];
+    while (sequence.length < count && candidates.length > 0) {
+        const index = pickWeightedCardIndex(candidates, weightFn);
+        sequence.push(candidates.splice(index, 1)[0]);
+    }
+    shuffleArray(sequence);
+    return sequence;
+}
+
+function pickWeightedCardIndex(cards, weightFn = getVocabSelectionWeight) {
+    const weights = cards.map(card => Math.max(0.01, Number(weightFn(card)) || 0.01));
     const total = weights.reduce((sum, weight) => sum + weight, 0);
     let target = Math.random() * total;
     for (let i = 0; i < weights.length; i++) {
@@ -1298,6 +1471,8 @@ function pickWeightedCardIndex(cards) {
 }
 
 function getVocabSelectionWeight(card) {
+    if (isCardMastered(card)) return 0.25;
+
     const stats = getCardStats(card);
     if (!stats.seen) return 100;
     if (stats.correct === 0) return 100;
@@ -1371,7 +1546,7 @@ async function startGrammarPractice() {
     }
 
     document.getElementById('btn-open-fav').classList.add('hidden');
-    document.getElementById('btn-unfamiliar').classList.remove('hidden');
+    document.getElementById('practice-header-actions').classList.remove('hidden');
     document.getElementById('btn-finish-now').classList.remove('hidden');
 
     document.getElementById('main-menu').classList.add('hidden');
@@ -1480,15 +1655,7 @@ function renderQuestion() {
     manualInput.style.backgroundColor = '';
     document.getElementById('btn-manual-submit').disabled = false;
     
-    // Set unfamiliar button state
-    let unfamBtn = document.getElementById('btn-unfamiliar');
-    if (mistakes.has(getCardKey(card))) {
-        unfamBtn.innerText = "已記錄";
-        unfamBtn.style.backgroundColor = "#b22222";
-    } else {
-        unfamBtn.innerText = "我不熟";
-        unfamBtn.style.backgroundColor = "var(--btn-bg)";
-    }
+    updatePracticeHeaderActions();
 
     document.getElementById('progress-bar').innerText = `剩餘 ${practiceQueue.length - currentQIndex} 題`;
     
@@ -1527,6 +1694,7 @@ function renderQuestion() {
     }
 
     document.getElementById('question-text').innerHTML = questionText;
+    updatePracticeHeaderActions();
 
     if (type !== 'manual') {
         while(optionsList.length < 4) optionsList.push(optionsList[0] + " "); 
@@ -1756,7 +1924,7 @@ function renderGrammarQuestion() {
     document.getElementById('options-area').classList.remove('hidden');
     document.getElementById('btn-next').classList.add('hidden');
     document.getElementById('progress-bar').innerText = `剩餘 ${practiceQueue.length - currentQIndex} 題`;
-    updateUnfamiliarButtonState();
+    updatePracticeHeaderActions();
 
     const pArea = document.getElementById('practice-area');
     pArea.classList.remove('fade');
@@ -1767,6 +1935,7 @@ function renderGrammarQuestion() {
         <div style="font-size: 1.35rem; line-height: 1.55;">${escapeHtml(qData.example.blankQuestion)}</div>
     `;
     document.getElementById('question-text').innerHTML = questionText;
+    updatePracticeHeaderActions();
 
     qData.options.forEach(option => {
         const btn = document.createElement('button');
@@ -1961,9 +2130,16 @@ function showAnswerDetails() {
     displayHtml += `<div style="font-size: 0.95rem; color: #aaa; margin-top: 5px;">${formatCardMeta(card)}</div>`;
     displayHtml += `<div style="font-size: 1.2rem; color: #87ceeb; margin-top: 5px;">${card.zh}</div>`;
     displayHtml += `<div class="subtle-meta">${escapeHtml(formatVocabStats(card))}</div>`;
-    
+
     document.getElementById('question-text').innerHTML = displayHtml;
     document.getElementById('btn-next').classList.remove('hidden');
+    updatePracticeHeaderActions();
+}
+
+function toggleCurrentCardMastered() {
+    if (!currentQuestionData || !currentQuestionData.card) return;
+    setCardMastered(currentQuestionData.card, !isCardMastered(currentQuestionData.card));
+    updatePracticeHeaderActions();
 }
 
 function handleChoice(btn, isCorrect, correctStr) {
@@ -2047,9 +2223,7 @@ function markUnfamiliar() {
         : getCardKey(currentQuestionData.card);
     if (activePracticeMode === 'vocab') currentQuestionData.forceReview = true;
     mistakes.add(key);
-    let btn = document.getElementById('btn-unfamiliar');
-    btn.innerText = "已記錄";
-    btn.style.backgroundColor = "#b22222";
+    updatePracticeHeaderActions();
 }
 
 function updateUnfamiliarButtonState() {
@@ -2060,10 +2234,33 @@ function updateUnfamiliarButtonState() {
         : getCardKey(currentQuestionData.card);
     if (mistakes.has(key)) {
         btn.innerText = "已記錄";
-        btn.style.backgroundColor = "#b22222";
+        btn.classList.add('is-active');
     } else {
-        btn.innerText = "我不熟";
-        btn.style.backgroundColor = "var(--btn-bg)";
+        btn.innerText = "收藏";
+        btn.classList.remove('is-active');
+    }
+}
+
+function updatePracticeHeaderActions() {
+    const wrapper = document.getElementById('practice-header-actions');
+    const masteredBtn = document.getElementById('btn-mastered');
+    if (!wrapper || !masteredBtn) return;
+
+    if (!currentQuestionData) {
+        wrapper.classList.add('hidden');
+        return;
+    }
+
+    wrapper.classList.remove('hidden');
+    updateUnfamiliarButtonState();
+
+    if (activePracticeMode === 'vocab' && currentQuestionData.card) {
+        const mastered = isCardMastered(currentQuestionData.card);
+        masteredBtn.innerText = mastered ? '取消熟讀' : '設為熟讀';
+        masteredBtn.classList.toggle('is-active', mastered);
+        masteredBtn.classList.remove('hidden');
+    } else {
+        masteredBtn.classList.add('hidden');
     }
 }
 
@@ -2197,7 +2394,7 @@ function saveResultFavoritesAndReturn() {
 
     // Reset Header Buttons
     document.getElementById('btn-open-fav').classList.remove('hidden');
-    document.getElementById('btn-unfamiliar').classList.add('hidden');
+    document.getElementById('practice-header-actions').classList.add('hidden');
     document.getElementById('btn-finish-now').classList.add('hidden');
     updateFavoriteButtonLabel();
 
