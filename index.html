@@ -457,7 +457,7 @@
 
 <script>
 // --- Data & State ---
-const APP_VERSION = '2026-07-16-mastered-toggle-label';
+const APP_VERSION = '2026-07-18-correct-count-weight';
 const CLOUD_CSV_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRwrPhdT_QiuhePdoxukHY6HtbFP7fbgBqrjwoBbtJEAqUaQEks3Nv0-iw-muew9EIpFel7Njj44SFp/pub?gid=0&single=true&output=csv';
 const LOCAL_CSV_PATH = 'vocab.csv';
 const CLOUD_GRAMMAR_POINTS_PATH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2CWnpeyv2qC3kV5f-o-MC9KRukN1j25BZI7qLjCnAGEjIk-DF8MmT_dYAn_-T4KzNHoJ1EiEdHI0w/pub?gid=0&single=true&output=csv';
@@ -1479,9 +1479,14 @@ function getVocabSelectionWeight(card) {
 
     const wrongRate = stats.wrong / stats.seen;
     const correctRate = stats.correct / stats.seen;
-    if (correctRate >= 0.9) return 1;
+    if (correctRate >= 0.9) return reduceWeightByCorrectCount(1, stats, correctRate);
 
-    return 1 + Math.min(wrongRate, 0.9) * 2.5;
+    return reduceWeightByCorrectCount(1 + Math.min(wrongRate, 0.9) * 2.5, stats, correctRate);
+}
+
+function reduceWeightByCorrectCount(weight, stats, correctRate) {
+    const correctPressure = stats.correct * correctRate * 0.08;
+    return Math.max(weight / (1 + correctPressure), weight * 0.25);
 }
 
 async function startGrammarPractice() {
